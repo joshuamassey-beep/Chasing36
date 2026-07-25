@@ -90,6 +90,19 @@
       <label>Password<input type="password" id="loginPw" autocomplete="current-password"></label>
       <button class="btn" onclick="doLogin()">Sign In</button>
       <div class="msg" id="loginMsg"></div>
+      <p class="nick" style="margin-top:10px"><a href="#" onclick="toggleForgot();return false;" style="color:var(--blue)">Forgot password?</a></p>
+      <div id="forgotBox" style="display:none">
+        <label>Email for reset link<input type="email" id="forgotEmail" autocomplete="username"></label>
+        <button class="btn sec" onclick="sendReset()">Send Reset Link</button>
+        <div class="msg" id="forgotMsg"></div>
+      </div>
+    </div>
+    <div class="card" id="resetCard" style="display:none">
+      <h2>Set New Password</h2>
+      <p class="nick">You followed a password reset link. Choose a new password to finish.</p>
+      <label>New password<input type="password" id="resetPw" autocomplete="new-password"></label>
+      <button class="btn" onclick="submitReset()">Set Password</button>
+      <div class="msg" id="resetMsg"></div>
     </div>
     <div id="adminPanel" style="display:none">
       <div class="card"><h2>Enter / Edit a Score</h2>
@@ -215,19 +228,20 @@ function effGross(round){
 })();
 
 /* ===== AUTH ===== */
-let isAdmin=false, sessionUser=null;
+let isAdmin=false, sessionUser=null, inRecovery=false;
 async function refreshAuth(){
   const {data} = await db.auth.getSession();
   sessionUser = data.session?.user || null;
   isAdmin = false;
-  if(sessionUser){
+  if(sessionUser && !inRecovery){
     const r = await db.rpc('is_admin');
     isAdmin = !!r.data;
   }
   document.getElementById('authStatus').textContent = sessionUser ? (sessionUser.email + (isAdmin?' · admin':'')) : '';
-  document.getElementById('loginCard').style.display = sessionUser ? 'none':'block';
-  document.getElementById('adminPanel').style.display = (sessionUser && isAdmin) ? 'block':'none';
-  document.getElementById('notAdminCard').style.display = (sessionUser && !isAdmin) ? 'block':'none';
+  document.getElementById('resetCard').style.display = inRecovery ? 'block':'none';
+  document.getElementById('loginCard').style.display = (sessionUser || inRecovery) ? 'none':'block';
+  document.getElementById('adminPanel').style.display = (sessionUser && isAdmin && !inRecovery) ? 'block':'none';
+  document.getElementById('notAdminCard').style.display = (sessionUser && !isAdmin && !inRecovery) ? 'block':'none';
 }
 async function doLogin(){
   const msg=document.getElementById('loginMsg');
@@ -248,6 +262,32 @@ async function changePw(){
   msg.textContent = error ? error.message : 'Password changed ✓';
   msg.className = 'msg '+(error?'err':'ok');
   if(!error) document.getElementById('newPw').value='';
+}
+function toggleForgot(){
+  const box=document.getElementById('forgotBox');
+  box.style.display = box.style.display==='none' ? 'block':'none';
+  if(box.style.display==='block') document.getElementById('forgotEmail').value = document.getElementById('loginEmail').value;
+}
+async function sendReset(){
+  const msg=document.getElementById('forgotMsg');
+  const email=document.getElementById('forgotEmail').value.trim();
+  if(!email){ msg.textContent='Enter your email.'; msg.className='msg err'; return; }
+  const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo:'https://race-to-36.vercel.app'});
+  msg.textContent = error ? error.message : 'If that email has an account, a reset link is on its way — check spam too.';
+  msg.className = 'msg '+(error?'err':'ok');
+}
+async function submitReset(){
+  const msg=document.getElementById('resetMsg');
+  const pw=document.getElementById('resetPw').value;
+  if(pw.length<8){ msg.textContent='Use at least 8 characters.'; msg.className='msg err'; return; }
+  const {error} = await db.auth.updateUser({password: pw});
+  msg.textContent = error ? error.message : 'Password set ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error){
+    document.getElementById('resetPw').value='';
+    inRecovery = false;
+    setTimeout(refreshAuth, 800);
+  }
 }
 
 /* ===== DATA + RENDER ===== */
@@ -460,7 +500,10 @@ async function addPlayer(){
 
 /* ===== REALTIME + INIT ===== */
 db.channel('live').on('postgres_changes',{event:'*',schema:'public'},load).subscribe();
-db.auth.onAuthStateChange(refreshAuth);
+db.auth.onAuthStateChange(function(event){
+  if(event === 'PASSWORD_RECOVERY') inRecovery = true;
+  refreshAuth();
+});
 refreshAuth(); load();
 </script>
 </body>
