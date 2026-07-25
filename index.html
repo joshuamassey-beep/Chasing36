@@ -44,12 +44,20 @@
   .badge{position:fixed;bottom:10px;right:12px;font-size:.68rem;color:var(--dim);}
   .badge.fail{color:var(--red);font-weight:700;}
   h2{font-size:1rem;margin-bottom:10px;color:var(--green);}
+  h3{font-size:.85rem;color:var(--gold);margin:14px 0 6px;}
   .explain p{font-size:.9rem;line-height:1.6;margin-bottom:10px;}
   .explain .fine{color:var(--dim);font-size:.8rem;}
   .weeknav{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
   .weeknav button{background:var(--card2);border:1px solid var(--line);color:var(--dim);padding:6px 12px;border-radius:8px;cursor:pointer;}
   .weeknav button.active{color:#0a1610;background:var(--gold);border-color:var(--gold);font-weight:700;}
   .winner{color:var(--gold);font-weight:700;}
+  .holes{display:grid;grid-template-columns:repeat(9,1fr);gap:5px;margin-top:6px;}
+  .holes input{padding:8px 2px;text-align:center;margin-top:0;}
+  .holes .hl{font-size:.6rem;color:var(--dim);text-align:center;display:block;margin-bottom:2px;}
+  .total{font-size:.85rem;color:var(--gold);margin-top:8px;}
+  .prize{font-size:.85rem;line-height:1.7;}
+  .prize b{color:var(--gold);}
+  .star{color:var(--gold);}
   #jsError{display:none;background:#3f1d1d;color:var(--red);padding:10px 14px;font-size:.85rem;text-align:center;}
 </style>
 </head>
@@ -67,13 +75,15 @@
   <button data-tab="rules">Scoring 101</button>
 </nav>
 <main>
-  <div id="tab-season" class="tab"><div class="card"><h2>Season Standings</h2><div id="seasonBody">Loading…</div></div>
+  <div id="tab-season" class="tab"><div class="card"><h2>Season Standings</h2><div id="seasonBody">Loading…</div><p class="nick" style="margin-top:8px">★ = Worst Hole Eraser used</p></div>
     <div class="card"><h2>Roster</h2><div id="rosterBody">Loading…</div></div></div>
 
-  <div id="tab-week" class="tab" style="display:none"><div class="card"><h2>Weekly Results</h2><div class="weeknav" id="weekNav"></div><div id="weekBody">Loading…</div></div></div>
+  <div id="tab-week" class="tab" style="display:none">
+    <div class="card"><h2>Weekly Results</h2><div class="weeknav" id="weekNav"></div><div id="weekBody">Loading…</div></div>
+    <div class="card"><h2>Weekly Prizes</h2><div class="prize" id="prizeBody">Loading…</div></div>
+  </div>
 
   <div id="tab-admin" class="tab" style="display:none">
-    <!-- shown when NOT logged in -->
     <div class="card" id="loginCard">
       <h2>Admin Login</h2>
       <label>Email<input type="email" id="loginEmail" autocomplete="username"></label>
@@ -81,15 +91,34 @@
       <button class="btn" onclick="doLogin()">Sign In</button>
       <div class="msg" id="loginMsg"></div>
     </div>
-    <!-- shown when logged in as admin -->
     <div id="adminPanel" style="display:none">
       <div class="card"><h2>Enter / Edit a Score</h2>
         <label>Player<select id="scorePlayer"></select></label>
         <label>Week<select id="scoreWeek"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
-        <label>Gross score (9 holes)<input type="number" id="scoreGross" min="18" max="90" inputmode="numeric"></label>
+        <label>Hole-by-hole (enables skins)</label>
+        <div class="holes" id="holesGrid"></div>
+        <div class="total" id="holesTotal"></div>
+        <label>OR just the gross total (no skins for this round)<input type="number" id="scoreGross" min="18" max="90" inputmode="numeric"></label>
         <button class="btn" onclick="saveScore()">Save Score</button>
         <button class="btn danger" onclick="deleteScore()">Delete This Player/Week Score</button>
         <div class="msg" id="scoreMsg"></div>
+      </div>
+      <div class="card"><h2>Closest to Pin (Weeks 3 &amp; 5)</h2>
+        <label>Week<select id="ctpWeek"><option>3</option><option>5</option><option>1</option><option>2</option><option>4</option><option>6</option></select></label>
+        <label>Designated hole<select id="ctpHole"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></label>
+        <label>Winner<select id="ctpPlayer"></select></label>
+        <button class="btn" onclick="saveCtp()">Save CTP Winner</button>
+        <button class="btn danger" onclick="clearCtp()">Clear This Week's CTP</button>
+        <div class="msg" id="ctpMsg"></div>
+      </div>
+      <div class="card"><h2>Worst Hole Eraser (one per player per season)</h2>
+        <p class="nick">Replaces the chosen hole's score with par 4 in that round. Only works on rounds entered hole-by-hole.</p>
+        <label>Player<select id="erPlayer"></select></label>
+        <label>Week<select id="erWeek"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <label>Hole to erase<select id="erHole"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></label>
+        <button class="btn" onclick="applyEraser()">Apply Eraser</button>
+        <button class="btn danger" onclick="clearEraser()">Undo This Player's Eraser</button>
+        <div class="msg" id="erMsg"></div>
       </div>
       <div class="card"><h2>Add Player</h2>
         <label>Name<input type="text" id="pName"></label>
@@ -105,7 +134,6 @@
         <div class="msg" id="acctMsg"></div>
       </div>
     </div>
-    <!-- logged in but not admin -->
     <div class="card" id="notAdminCard" style="display:none">
       <h2>Signed in</h2>
       <p class="nick">This account doesn't have admin access. Ask the league admin to grant it.</p>
@@ -117,6 +145,9 @@
     <div class="card"><h2>How the handicap works</h2>
       <p>Your handicap starts from your skill level (Novice −4, Amateur −2, Veteran 0) and then becomes <b>yours</b>: each week we blend that starting number with the average of your <b>best</b> rounds so far, so by mid-season your handicap reflects how you actually play — not the level you signed up as. We subtract 80% of the gap rather than all of it, so better golf still wins on average, but everyone on the leaderboard is within reach every week. And because only your best rounds count, a bad round — accidental or intentional — can never raise your handicap. The only way up the Race to 36 leaderboard is to play well.</p>
       <p class="fine">Details: Net = Gross − Handicap. Handicap = 80% of a blend between your level's starting number and the average of your best half of rounds (measured against a scratch of 33), rounded, never below 0, never more than 2 above your starting number, and it can rise at most 1 stroke per week. Season standings count your best 5 of 6 net rounds.</p>
+    </div>
+    <div class="card"><h2>Prizes</h2>
+      <p><b>Grand Prize:</b> best cumulative net over your best 5 of 6 weeks. <b>Weekly Skins:</b> lowest unique score on each hole wins that skin — Novice, Amateur, and Veteran skins are separate, so you only compete against your own level. <b>Closest to Pin</b> (weeks 3 &amp; 5): everyone competes together on a designated hole, no handicap. <b>Worst Hole Eraser:</b> once per season, one blow-up hole in one round gets replaced with par 4 — ask the commissioner to apply yours.</p>
     </div>
   </div>
 </main>
@@ -141,30 +172,43 @@ const SUPABASE_KEY = "sb_publishable_Puco0-pjcP9bSo5YLdIQuQ_xdjKqS6G";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ===== HANDICAP ENGINE (Best-Rounds Shrinkage model) ===== */
-const PRIORS={N:5,A:2,V:0}, PROV={N:4,A:2,V:0}, SCRATCH=33, ALLOW=0.8, WEEKS=6;
-function rawHandicap(level, grosses){
+const PRIORS={N:5,A:2,V:0}, SCRATCH=33, ALLOW=0.8, WEEKS=6, PAR=4, SEASON=1;
+function priorFor(pl){ return (pl.custom_prior===null||pl.custom_prior===undefined) ? PRIORS[pl.level] : Number(pl.custom_prior); }
+function provOf(prior){ return Math.max(0, Math.round(ALLOW*prior)); }
+function rawHandicap(prior, grosses){
   const k = grosses.length;
-  if(!k) return PROV[level];
+  if(!k) return provOf(prior);
   const diffs = grosses.map(g=>g-SCRATCH).sort((a,b)=>a-b);
   const best = diffs.slice(0, Math.max(1, Math.ceil(k/2)));
   const B = best.reduce((a,b)=>a+b,0)/best.length;
-  const raw = (2*PRIORS[level] + k*B) / (2+k);
-  return Math.min(Math.max(Math.round(ALLOW*raw), 0), PROV[level]+2);
+  const raw = (2*prior + k*B) / (2+k);
+  return Math.min(Math.max(Math.round(ALLOW*raw), 0), provOf(prior)+2);
 }
-function handicapSequence(level, grossesInOrder){
-  const H=[PROV[level]]; const played=[];
+function handicapSequence(prior, grossesInOrder){
+  const H=[provOf(prior)]; const played=[];
   for(const g of grossesInOrder){
     played.push(g);
-    H.push(Math.min(rawHandicap(level, played), H[H.length-1]+1));
+    H.push(Math.min(rawHandicap(prior, played), H[H.length-1]+1));
   }
   return H;
 }
-/* Self-test against Python-verified reference vectors */
+/* Effective gross: applies Worst Hole Eraser (hole → par 4) when set */
+function effGross(round){
+  if(round.erased_hole && round.hole_scores && round.hole_scores.length===9){
+    return round.gross - round.hole_scores[round.erased_hole-1] + PAR;
+  }
+  return round.gross;
+}
+/* Self-test against Python-verified reference vectors + eraser check */
 (function(){
   const V=[["N",[40,37,36,38],[4,5,4,3,3]],["N",[44,44,44,36],[4,5,6,6,5]],["N",[34,35],[4,3,2]],
            ["A",[35,33,36],[2,2,1,1]],["V",[33,32,35,31],[0,0,0,0,0]],["A",[40,41],[2,3,4]],
            ["N",[],[4]],["V",[36,37,38],[0,1,1,2]]];
-  const ok = V.every(([lv,g,exp])=>JSON.stringify(handicapSequence(lv,g))===JSON.stringify(exp));
+  let ok = V.every(([lv,g,exp])=>JSON.stringify(handicapSequence(PRIORS[lv],g))===JSON.stringify(exp));
+  ok = ok && effGross({gross:41, erased_hole:3, hole_scores:[4,5,8,4,5,4,4,3,4]})===37;
+  ok = ok && effGross({gross:41, erased_hole:null, hole_scores:null})===41;
+  ok = ok && JSON.stringify(handicapSequence(3,[]))===JSON.stringify([2]);           /* custom prior 3 → prov 2 */
+  ok = ok && priorFor({level:'N', custom_prior:3})===3 && priorFor({level:'N'})===5; /* override beats level */
   const el=document.getElementById('selftest');
   el.textContent = ok ? "engine ✓" : "ENGINE TEST FAILED — do not trust results";
   el.className = "badge"+(ok?"":" fail");
@@ -207,34 +251,58 @@ async function changePw(){
 }
 
 /* ===== DATA + RENDER ===== */
-let players=[], rounds=[], curWeek=1;
+let players=[], rounds=[], ctps=[], curWeek=1;
 async function load(){
-  const [p,r] = await Promise.all([
+  const [p,r,c] = await Promise.all([
     db.from('players').select('*').order('name'),
-    db.from('rounds').select('*').order('week')
+    db.from('rounds').select('*').eq('season', SEASON).order('week'),
+    db.from('ctp').select('*').eq('season', SEASON)
   ]);
-  players = p.data||[]; rounds = r.data||[];
+  players = p.data||[]; rounds = r.data||[]; ctps = c.data||[];
   render();
 }
 function playerRows(){
   return players.map(pl=>{
     const mine = rounds.filter(r=>r.player_id===pl.id).sort((a,b)=>a.week-b.week);
-    const H = handicapSequence(pl.level, mine.map(r=>r.gross));
-    const nets = mine.map((r,i)=>({week:r.week, gross:r.gross, hcp:H[i], net:r.gross-H[i]}));
+    const H = handicapSequence(priorFor(pl), mine.map(effGross));
+    const nets = mine.map((r,i)=>({week:r.week, gross:effGross(r), rawGross:r.gross, erased:!!r.erased_hole, hcp:H[i], net:effGross(r)-H[i]}));
     const best5 = [...nets].sort((a,b)=>a.net-b.net).slice(0,5);
-    return {pl, nets, currentH:H[H.length-1], played:nets.length,
+    return {pl, nets, currentH:H[H.length-1], played:nets.length, eraserUsed: mine.some(r=>r.erased_hole),
             season: best5.reduce((s,n)=>s+n.net,0), counted: best5.length};
   });
 }
 function lvlTag(l){return `<span class="lvl ${l}">${{N:'NOV',A:'AM',V:'VET'}[l]}</span>`;}
-function nameCell(pl){return `<td><span class="pname">${pl.name}</span> ${pl.nickname?`<span class="nick">"${pl.nickname}"</span>`:''} ${lvlTag(pl.level)}</td>`;}
+function pName(pl){return pl.name + (pl.nickname?` "${pl.nickname}"`:'');}
+function nameCell(pl, star){return `<td><span class="pname">${pl.name}</span> ${pl.nickname?`<span class="nick">"${pl.nickname}"</span>`:''} ${lvlTag(pl.level)}${star?' <span class="star">★</span>':''}</td>`;}
+function skinsForWeek(week){
+  /* lowest unique raw hole score per hole, within each skill level */
+  const out={};
+  ['N','A','V'].forEach(lv=>{
+    const wr = rounds.filter(r=>r.week===week && r.hole_scores && r.hole_scores.length===9)
+      .map(r=>({r, pl: players.find(p=>p.id===r.player_id)}))
+      .filter(x=>x.pl && x.pl.level===lv);
+    if(!wr.length) return;
+    const wins={};
+    for(let h=0; h<9; h++){
+      let min=99, who=null, tie=false;
+      wr.forEach(x=>{
+        const s=x.r.hole_scores[h];
+        if(s<min){min=s; who=x.pl; tie=false;}
+        else if(s===min){tie=true;}
+      });
+      if(who && !tie){ (wins[who.id]=wins[who.id]||{pl:who,holes:[]}).holes.push(h+1); }
+    }
+    if(Object.keys(wins).length) out[lv]=Object.values(wins);
+  });
+  return out;
+}
 function render(){
   const rows = playerRows();
   const elig = rows.filter(r=>r.played>=5).sort((a,b)=>a.season-b.season);
   const rest = rows.filter(r=>r.played<5).sort((a,b)=>(a.season/(a.counted||1))-(b.season/(b.counted||1)));
   let html = `<table><tr><th></th><th>Player</th><th class="num">Rounds</th><th class="num">Hcp</th><th class="num">Best 5 Net</th></tr>`;
-  elig.forEach((r,i)=>{ html+=`<tr class="${i===0?'r1':''}"><td class="rank">${i+1}</td>${nameCell(r.pl)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num net">${r.season}</td></tr>`; });
-  rest.forEach(r=>{ html+=`<tr class="pending"><td class="rank">–</td>${nameCell(r.pl)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.counted? r.season+' <span class="nick">('+r.counted+' rds)</span>':'—'}</td></tr>`; });
+  elig.forEach((r,i)=>{ html+=`<tr class="${i===0?'r1':''}"><td class="rank">${i+1}</td>${nameCell(r.pl,r.eraserUsed)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num net">${r.season}</td></tr>`; });
+  rest.forEach(r=>{ html+=`<tr class="pending"><td class="rank">–</td>${nameCell(r.pl,r.eraserUsed)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.counted? r.season+' <span class="nick">('+r.counted+' rds)</span>':'—'}</td></tr>`; });
   html+=`</table>`;
   if(!rows.length) html = `<p class="nick">No players yet — the admin can add them in the Admin tab.</p>`;
   document.getElementById('seasonBody').innerHTML = html;
@@ -244,36 +312,135 @@ function render(){
   [...nav.children].forEach((b,i)=>b.classList.toggle('active',i+1===curWeek));
   const wk = rows.map(r=>{const n=r.nets.find(n=>n.week===curWeek);return n?{pl:r.pl,...n}:null;}).filter(Boolean).sort((a,b)=>a.net-b.net);
   let wh = `<table><tr><th></th><th>Player</th><th class="num">Gross</th><th class="num">Hcp</th><th class="num">Net</th></tr>`;
-  wk.forEach((r,i)=>{ wh+=`<tr class="${i===0?'r1':''}"><td class="rank ${i===0?'winner':''}">${i===0?'🏆':i+1}</td>${nameCell(r.pl)}<td class="num">${r.gross}</td><td class="num hcp">−${r.hcp}</td><td class="num net">${r.net}</td></tr>`; });
+  wk.forEach((r,i)=>{ wh+=`<tr class="${i===0?'r1':''}"><td class="rank ${i===0?'winner':''}">${i===0?'🏆':i+1}</td>${nameCell(r.pl,r.erased)}<td class="num">${r.gross}${r.erased?' <span class="nick">(was '+r.rawGross+')</span>':''}</td><td class="num hcp">−${r.hcp}</td><td class="num net">${r.net}</td></tr>`; });
   wh+=`</table>`;
   document.getElementById('weekBody').innerHTML = wk.length?wh:`<p class="nick">No scores for week ${curWeek} yet.</p>`;
 
+  /* Prizes: skins + CTP */
+  const skins = skinsForWeek(curWeek);
+  const lvName={N:'Novice',A:'Amateur',V:'Veteran'};
+  let ph='';
+  ['N','A','V'].forEach(lv=>{
+    if(skins[lv]) ph += `<b>${lvName[lv]} skins:</b> ` + skins[lv].map(w=>`${pName(w.pl)} (H${w.holes.join(', H')})`).join(' · ') + '<br>';
+  });
+  if(!ph) ph = '<span class="nick">No skins yet — skins need hole-by-hole scores.</span><br>';
+  const ctp = ctps.find(c=>c.week===curWeek);
+  if(ctp){
+    const w = players.find(p=>p.id===ctp.player_id);
+    ph += `<b>Closest to Pin</b> (Hole ${ctp.hole}): ${w?pName(w):'TBD'} 🍺`;
+  } else if(curWeek===3||curWeek===5){
+    ph += `<span class="nick">Closest to Pin week — winner TBD.</span>`;
+  }
+  document.getElementById('prizeBody').innerHTML = ph;
+
   document.getElementById('rosterBody').innerHTML = players.length
-    ? `<table><tr><th>Player</th><th class="num">Level</th><th class="num">Current Hcp</th></tr>`+rows.map(r=>`<tr>${nameCell(r.pl)}<td class="num">${{N:'Novice',A:'Amateur',V:'Veteran'}[r.pl.level]}</td><td class="num hcp">−${r.currentH}</td></tr>`).join('')+`</table>`
+    ? `<table><tr><th>Player</th><th class="num">Level</th><th class="num">Current Hcp</th><th class="num">Eraser</th></tr>`+rows.map(r=>`<tr>${nameCell(r.pl,false)}<td class="num">${lvName[r.pl.level]}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.eraserUsed?'Used ★':'Available'}</td></tr>`).join('')+`</table>`
     : `<p class="nick">No players yet.</p>`;
-  document.getElementById('scorePlayer').innerHTML = players.map(p=>`<option value="${p.id}">${p.name}${p.nickname?' "'+p.nickname+'"':''}</option>`).join('');
+  const opts = players.map(p=>`<option value="${p.id}">${pName(p)}</option>`).join('');
+  ['scorePlayer','ctpPlayer','erPlayer'].forEach(id=>{ const el=document.getElementById(id); const cur=el.value; el.innerHTML=opts; if(cur) el.value=cur; });
 }
+
+/* ===== HOLE ENTRY GRID ===== */
+(function(){
+  const grid=document.getElementById('holesGrid');
+  for(let h=1;h<=9;h++){
+    const wrap=document.createElement('div');
+    wrap.innerHTML=`<span class="hl">H${h}</span>`;
+    const inp=document.createElement('input');
+    inp.type='number'; inp.min=1; inp.max=15; inp.id='h'+h; inp.inputMode='numeric';
+    inp.addEventListener('input', updateTotal);
+    wrap.appendChild(inp); grid.appendChild(wrap);
+  }
+})();
+function holeVals(){
+  const v=[]; for(let h=1;h<=9;h++){ const x=parseInt(document.getElementById('h'+h).value); v.push(isNaN(x)?null:x); } return v;
+}
+function updateTotal(){
+  const v=holeVals().filter(x=>x!==null);
+  document.getElementById('holesTotal').textContent = v.length? `Total so far: ${v.reduce((a,b)=>a+b,0)} (${v.length}/9 holes)` : '';
+}
+/* Prefill when player/week picked and a round exists */
+async function prefill(){
+  const pid=document.getElementById('scorePlayer').value, wk=parseInt(document.getElementById('scoreWeek').value);
+  const r=rounds.find(x=>x.player_id===pid && x.week===wk);
+  for(let h=1;h<=9;h++) document.getElementById('h'+h).value = r&&r.hole_scores? r.hole_scores[h-1]:'';
+  document.getElementById('scoreGross').value = r&&!r.hole_scores? r.gross:'';
+  updateTotal();
+}
+document.getElementById('scorePlayer').addEventListener('change', prefill);
+document.getElementById('scoreWeek').addEventListener('change', prefill);
 
 /* ===== ADMIN WRITES (RLS-enforced) ===== */
 async function saveScore(){
   const msg=document.getElementById('scoreMsg');
-  const gross=parseInt(document.getElementById('scoreGross').value);
-  if(!(gross>=18&&gross<=90)){msg.textContent='Enter a gross score between 18 and 90.';msg.className='msg err';return;}
+  const holes=holeVals();
+  const complete=holes.every(x=>x!==null);
+  let gross, hole_scores=null;
+  if(complete){
+    if(holes.some(x=>x<1||x>15)){msg.textContent='Hole scores must be 1–15.';msg.className='msg err';return;}
+    gross=holes.reduce((a,b)=>a+b,0); hole_scores=holes;
+  } else if(holes.some(x=>x!==null)){
+    msg.textContent='Fill all 9 holes, or clear them and use the gross field.';msg.className='msg err';return;
+  } else {
+    gross=parseInt(document.getElementById('scoreGross').value);
+    if(!(gross>=18&&gross<=90)){msg.textContent='Enter 9 hole scores, or a gross between 18 and 90.';msg.className='msg err';return;}
+  }
   const {error} = await db.from('rounds').upsert({
     player_id: document.getElementById('scorePlayer').value,
     week: parseInt(document.getElementById('scoreWeek').value),
-    gross: gross
-  }, {onConflict:'player_id,week'});
+    season: SEASON,
+    gross, hole_scores
+  }, {onConflict:'player_id,season,week'});
   msg.textContent = error ? error.message : 'Saved ✓';
   msg.className = 'msg '+(error?'err':'ok');
-  if(!error){document.getElementById('scoreGross').value='';load();}
+  if(!error) load();
 }
 async function deleteScore(){
   const msg=document.getElementById('scoreMsg');
   const {error} = await db.from('rounds').delete()
     .eq('player_id', document.getElementById('scorePlayer').value)
+    .eq('season', SEASON)
     .eq('week', parseInt(document.getElementById('scoreWeek').value));
   msg.textContent = error ? error.message : 'Deleted ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error) load();
+}
+async function saveCtp(){
+  const msg=document.getElementById('ctpMsg');
+  const {error} = await db.from('ctp').upsert({
+    season: SEASON,
+    week: parseInt(document.getElementById('ctpWeek').value),
+    hole: parseInt(document.getElementById('ctpHole').value),
+    player_id: document.getElementById('ctpPlayer').value
+  });
+  msg.textContent = error ? error.message : 'Saved ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error) load();
+}
+async function clearCtp(){
+  const msg=document.getElementById('ctpMsg');
+  const {error} = await db.from('ctp').delete().eq('season', SEASON).eq('week', parseInt(document.getElementById('ctpWeek').value));
+  msg.textContent = error ? error.message : 'Cleared ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error) load();
+}
+async function applyEraser(){
+  const msg=document.getElementById('erMsg');
+  const pid=document.getElementById('erPlayer').value, wk=parseInt(document.getElementById('erWeek').value);
+  const r=rounds.find(x=>x.player_id===pid && x.week===wk);
+  if(!r){msg.textContent='No round for that player/week.';msg.className='msg err';return;}
+  if(!r.hole_scores){msg.textContent='That round has no hole-by-hole scores — eraser needs them.';msg.className='msg err';return;}
+  const {error} = await db.from('rounds').update({erased_hole: parseInt(document.getElementById('erHole').value)}).eq('id', r.id);
+  msg.textContent = error ? (error.message.includes('one_eraser')?'This player already used their eraser.':error.message) : 'Eraser applied ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error) load();
+}
+async function clearEraser(){
+  const msg=document.getElementById('erMsg');
+  const {error} = await db.from('rounds').update({erased_hole:null})
+    .eq('player_id', document.getElementById('erPlayer').value)
+    .eq('season', SEASON).not('erased_hole','is',null);
+  msg.textContent = error ? error.message : 'Eraser removed ✓';
   msg.className = 'msg '+(error?'err':'ok');
   if(!error) load();
 }
