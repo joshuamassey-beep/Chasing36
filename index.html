@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Race to 36 — Live Leaderboard</title>
+<style>
+  :root{--bg:#0d1b12;--card:#14251a;--card2:#1a3022;--line:#2a4a35;--text:#e8f0ea;--dim:#8fa898;--green:#4ade80;--gold:#fbbf24;--red:#f87171;--blue:#60a5fa;}
+  *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+  body{background:var(--bg);color:var(--text);min-height:100vh;}
+  header{padding:20px 16px 12px;text-align:center;background:linear-gradient(180deg,#0a1610,var(--bg));position:relative;}
+  header h1{font-size:1.5rem;letter-spacing:.5px;}
+  header h1 span{color:var(--green);}
+  header p{color:var(--dim);font-size:.8rem;margin-top:4px;}
+  #authStatus{position:absolute;top:10px;right:12px;font-size:.72rem;color:var(--dim);}
+  nav{display:flex;gap:6px;padding:10px 12px;overflow-x:auto;justify-content:center;flex-wrap:wrap;}
+  nav button{background:var(--card);color:var(--dim);border:1px solid var(--line);padding:8px 14px;border-radius:20px;font-size:.85rem;cursor:pointer;white-space:nowrap;}
+  nav button.active{background:var(--green);color:#0a1610;font-weight:700;border-color:var(--green);}
+  main{max-width:760px;margin:0 auto;padding:8px 12px 60px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;}
+  th{color:var(--dim);text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--line);}
+  td{padding:9px 8px;border-bottom:1px solid #1e3527;}
+  tr:last-child td{border-bottom:none;}
+  .rank{color:var(--dim);width:28px;}
+  .r1 .rank{color:var(--gold);font-weight:800;}
+  .pname{font-weight:600;}
+  .nick{color:var(--dim);font-size:.78rem;}
+  .lvl{font-size:.68rem;padding:2px 7px;border-radius:10px;font-weight:700;}
+  .lvl.N{background:#1e3a5f;color:var(--blue);}
+  .lvl.A{background:#3f3117;color:var(--gold);}
+  .lvl.V{background:#3f1d1d;color:var(--red);}
+  .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .net{font-weight:800;color:var(--green);}
+  .hcp{color:var(--dim);}
+  .pending{opacity:.55;}
+  input,select{background:var(--card2);border:1px solid var(--line);color:var(--text);padding:10px;border-radius:8px;font-size:1rem;width:100%;margin-top:4px;}
+  label{font-size:.78rem;color:var(--dim);display:block;margin-top:12px;}
+  .btn{background:var(--green);color:#0a1610;border:none;padding:12px;border-radius:8px;font-weight:700;font-size:1rem;width:100%;margin-top:16px;cursor:pointer;}
+  .btn.sec{background:var(--card2);color:var(--text);border:1px solid var(--line);font-weight:400;}
+  .btn.danger{background:transparent;color:var(--red);border:1px solid var(--red);font-weight:400;}
+  .msg{margin-top:10px;font-size:.85rem;min-height:1.2em;}
+  .msg.ok{color:var(--green);} .msg.err{color:var(--red);}
+  .badge{position:fixed;bottom:10px;right:12px;font-size:.68rem;color:var(--dim);}
+  .badge.fail{color:var(--red);font-weight:700;}
+  h2{font-size:1rem;margin-bottom:10px;color:var(--green);}
+  .explain p{font-size:.9rem;line-height:1.6;margin-bottom:10px;}
+  .explain .fine{color:var(--dim);font-size:.8rem;}
+  .weeknav{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+  .weeknav button{background:var(--card2);border:1px solid var(--line);color:var(--dim);padding:6px 12px;border-radius:8px;cursor:pointer;}
+  .weeknav button.active{color:#0a1610;background:var(--gold);border-color:var(--gold);font-weight:700;}
+  .winner{color:var(--gold);font-weight:700;}
+  #jsError{display:none;background:#3f1d1d;color:var(--red);padding:10px 14px;font-size:.85rem;text-align:center;}
+</style>
+</head>
+<body>
+<div id="jsError"></div>
+<header>
+  <div id="authStatus"></div>
+  <h1>🏌️ RACE TO <span>36</span></h1>
+  <p>Single leaderboard · Best-rounds handicapping · Best 5 of 6 counts</p>
+</header>
+<nav>
+  <button class="active" data-tab="season">Season</button>
+  <button data-tab="week">Weekly</button>
+  <button data-tab="admin">Admin</button>
+  <button data-tab="rules">Scoring 101</button>
+</nav>
+<main>
+  <div id="tab-season" class="tab"><div class="card"><h2>Season Standings</h2><div id="seasonBody">Loading…</div></div>
+    <div class="card"><h2>Roster</h2><div id="rosterBody">Loading…</div></div></div>
+
+  <div id="tab-week" class="tab" style="display:none"><div class="card"><h2>Weekly Results</h2><div class="weeknav" id="weekNav"></div><div id="weekBody">Loading…</div></div></div>
+
+  <div id="tab-admin" class="tab" style="display:none">
+    <!-- shown when NOT logged in -->
+    <div class="card" id="loginCard">
+      <h2>Admin Login</h2>
+      <label>Email<input type="email" id="loginEmail" autocomplete="username"></label>
+      <label>Password<input type="password" id="loginPw" autocomplete="current-password"></label>
+      <button class="btn" onclick="doLogin()">Sign In</button>
+      <div class="msg" id="loginMsg"></div>
+    </div>
+    <!-- shown when logged in as admin -->
+    <div id="adminPanel" style="display:none">
+      <div class="card"><h2>Enter / Edit a Score</h2>
+        <label>Player<select id="scorePlayer"></select></label>
+        <label>Week<select id="scoreWeek"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <label>Gross score (9 holes)<input type="number" id="scoreGross" min="18" max="90" inputmode="numeric"></label>
+        <button class="btn" onclick="saveScore()">Save Score</button>
+        <button class="btn danger" onclick="deleteScore()">Delete This Player/Week Score</button>
+        <div class="msg" id="scoreMsg"></div>
+      </div>
+      <div class="card"><h2>Add Player</h2>
+        <label>Name<input type="text" id="pName"></label>
+        <label>Nickname (optional)<input type="text" id="pNick"></label>
+        <label>Skill level<select id="pLevel"><option value="N">Novice (starts −4)</option><option value="A">Amateur (starts −2)</option><option value="V">Veteran (starts 0)</option></select></label>
+        <button class="btn" onclick="addPlayer()">Add Player</button>
+        <div class="msg" id="playerMsg"></div>
+      </div>
+      <div class="card"><h2>Account</h2>
+        <label>New password<input type="password" id="newPw" autocomplete="new-password"></label>
+        <button class="btn sec" onclick="changePw()">Change Password</button>
+        <button class="btn sec" onclick="doLogout()">Sign Out</button>
+        <div class="msg" id="acctMsg"></div>
+      </div>
+    </div>
+    <!-- logged in but not admin -->
+    <div class="card" id="notAdminCard" style="display:none">
+      <h2>Signed in</h2>
+      <p class="nick">This account doesn't have admin access. Ask the league admin to grant it.</p>
+      <button class="btn sec" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div id="tab-rules" class="tab explain" style="display:none">
+    <div class="card"><h2>How the handicap works</h2>
+      <p>Your handicap starts from your skill level (Novice −4, Amateur −2, Veteran 0) and then becomes <b>yours</b>: each week we blend that starting number with the average of your <b>best</b> rounds so far, so by mid-season your handicap reflects how you actually play — not the level you signed up as. We subtract 80% of the gap rather than all of it, so better golf still wins on average, but everyone on the leaderboard is within reach every week. And because only your best rounds count, a bad round — accidental or intentional — can never raise your handicap. The only way up the Race to 36 leaderboard is to play well.</p>
+      <p class="fine">Details: Net = Gross − Handicap. Handicap = 80% of a blend between your level's starting number and the average of your best half of rounds (measured against a scratch of 33), rounded, never below 0, never more than 2 above your starting number, and it can rise at most 1 stroke per week. Season standings count your best 5 of 6 net rounds.</p>
+    </div>
+  </div>
+</main>
+<div class="badge" id="selftest"></div>
+
+<script>
+/* Tabs work with zero dependencies — wired before anything else can fail. */
+document.querySelectorAll('nav button').forEach(function(b){ b.onclick = function(){
+  document.querySelectorAll('nav button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active');
+  document.querySelectorAll('.tab').forEach(function(t){t.style.display='none';});
+  document.getElementById('tab-'+b.dataset.tab).style.display='block';
+};});
+window.addEventListener('error', function(e){
+  var el=document.getElementById('jsError'); el.style.display='block';
+  el.textContent='Something broke: '+e.message+' — screenshot this and send it to Joshua.';
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = "https://lwebywdnvfwegqnzkkmd.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Puco0-pjcP9bSo5YLdIQuQ_xdjKqS6G";
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ===== HANDICAP ENGINE (Best-Rounds Shrinkage model) ===== */
+const PRIORS={N:5,A:2,V:0}, PROV={N:4,A:2,V:0}, SCRATCH=33, ALLOW=0.8, WEEKS=6;
+function rawHandicap(level, grosses){
+  const k = grosses.length;
+  if(!k) return PROV[level];
+  const diffs = grosses.map(g=>g-SCRATCH).sort((a,b)=>a-b);
+  const best = diffs.slice(0, Math.max(1, Math.ceil(k/2)));
+  const B = best.reduce((a,b)=>a+b,0)/best.length;
+  const raw = (2*PRIORS[level] + k*B) / (2+k);
+  return Math.min(Math.max(Math.round(ALLOW*raw), 0), PROV[level]+2);
+}
+function handicapSequence(level, grossesInOrder){
+  const H=[PROV[level]]; const played=[];
+  for(const g of grossesInOrder){
+    played.push(g);
+    H.push(Math.min(rawHandicap(level, played), H[H.length-1]+1));
+  }
+  return H;
+}
+/* Self-test against Python-verified reference vectors */
+(function(){
+  const V=[["N",[40,37,36,38],[4,5,4,3,3]],["N",[44,44,44,36],[4,5,6,6,5]],["N",[34,35],[4,3,2]],
+           ["A",[35,33,36],[2,2,1,1]],["V",[33,32,35,31],[0,0,0,0,0]],["A",[40,41],[2,3,4]],
+           ["N",[],[4]],["V",[36,37,38],[0,1,1,2]]];
+  const ok = V.every(([lv,g,exp])=>JSON.stringify(handicapSequence(lv,g))===JSON.stringify(exp));
+  const el=document.getElementById('selftest');
+  el.textContent = ok ? "engine ✓" : "ENGINE TEST FAILED — do not trust results";
+  el.className = "badge"+(ok?"":" fail");
+})();
+
+/* ===== AUTH ===== */
+let isAdmin=false, sessionUser=null;
+async function refreshAuth(){
+  const {data} = await db.auth.getSession();
+  sessionUser = data.session?.user || null;
+  isAdmin = false;
+  if(sessionUser){
+    const r = await db.rpc('is_admin');
+    isAdmin = !!r.data;
+  }
+  document.getElementById('authStatus').textContent = sessionUser ? (sessionUser.email + (isAdmin?' · admin':'')) : '';
+  document.getElementById('loginCard').style.display = sessionUser ? 'none':'block';
+  document.getElementById('adminPanel').style.display = (sessionUser && isAdmin) ? 'block':'none';
+  document.getElementById('notAdminCard').style.display = (sessionUser && !isAdmin) ? 'block':'none';
+}
+async function doLogin(){
+  const msg=document.getElementById('loginMsg');
+  const {error} = await db.auth.signInWithPassword({
+    email: document.getElementById('loginEmail').value.trim(),
+    password: document.getElementById('loginPw').value
+  });
+  msg.textContent = error ? error.message : 'Signed in ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error){ document.getElementById('loginPw').value=''; await refreshAuth(); }
+}
+async function doLogout(){ await db.auth.signOut(); await refreshAuth(); }
+async function changePw(){
+  const msg=document.getElementById('acctMsg');
+  const pw=document.getElementById('newPw').value;
+  if(pw.length<8){ msg.textContent='Use at least 8 characters.'; msg.className='msg err'; return; }
+  const {error} = await db.auth.updateUser({password: pw});
+  msg.textContent = error ? error.message : 'Password changed ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error) document.getElementById('newPw').value='';
+}
+
+/* ===== DATA + RENDER ===== */
+let players=[], rounds=[], curWeek=1;
+async function load(){
+  const [p,r] = await Promise.all([
+    db.from('players').select('*').order('name'),
+    db.from('rounds').select('*').order('week')
+  ]);
+  players = p.data||[]; rounds = r.data||[];
+  render();
+}
+function playerRows(){
+  return players.map(pl=>{
+    const mine = rounds.filter(r=>r.player_id===pl.id).sort((a,b)=>a.week-b.week);
+    const H = handicapSequence(pl.level, mine.map(r=>r.gross));
+    const nets = mine.map((r,i)=>({week:r.week, gross:r.gross, hcp:H[i], net:r.gross-H[i]}));
+    const best5 = [...nets].sort((a,b)=>a.net-b.net).slice(0,5);
+    return {pl, nets, currentH:H[H.length-1], played:nets.length,
+            season: best5.reduce((s,n)=>s+n.net,0), counted: best5.length};
+  });
+}
+function lvlTag(l){return `<span class="lvl ${l}">${{N:'NOV',A:'AM',V:'VET'}[l]}</span>`;}
+function nameCell(pl){return `<td><span class="pname">${pl.name}</span> ${pl.nickname?`<span class="nick">"${pl.nickname}"</span>`:''} ${lvlTag(pl.level)}</td>`;}
+function render(){
+  const rows = playerRows();
+  const elig = rows.filter(r=>r.played>=5).sort((a,b)=>a.season-b.season);
+  const rest = rows.filter(r=>r.played<5).sort((a,b)=>(a.season/(a.counted||1))-(b.season/(b.counted||1)));
+  let html = `<table><tr><th></th><th>Player</th><th class="num">Rounds</th><th class="num">Hcp</th><th class="num">Best 5 Net</th></tr>`;
+  elig.forEach((r,i)=>{ html+=`<tr class="${i===0?'r1':''}"><td class="rank">${i+1}</td>${nameCell(r.pl)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num net">${r.season}</td></tr>`; });
+  rest.forEach(r=>{ html+=`<tr class="pending"><td class="rank">–</td>${nameCell(r.pl)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.counted? r.season+' <span class="nick">('+r.counted+' rds)</span>':'—'}</td></tr>`; });
+  html+=`</table>`;
+  if(!rows.length) html = `<p class="nick">No players yet — the admin can add them in the Admin tab.</p>`;
+  document.getElementById('seasonBody').innerHTML = html;
+
+  const nav = document.getElementById('weekNav');
+  if(!nav.dataset.built){ nav.dataset.built=1; for(let w=1;w<=WEEKS;w++){const b=document.createElement('button');b.textContent='Wk '+w;b.onclick=()=>{curWeek=w;render();};nav.appendChild(b);} }
+  [...nav.children].forEach((b,i)=>b.classList.toggle('active',i+1===curWeek));
+  const wk = rows.map(r=>{const n=r.nets.find(n=>n.week===curWeek);return n?{pl:r.pl,...n}:null;}).filter(Boolean).sort((a,b)=>a.net-b.net);
+  let wh = `<table><tr><th></th><th>Player</th><th class="num">Gross</th><th class="num">Hcp</th><th class="num">Net</th></tr>`;
+  wk.forEach((r,i)=>{ wh+=`<tr class="${i===0?'r1':''}"><td class="rank ${i===0?'winner':''}">${i===0?'🏆':i+1}</td>${nameCell(r.pl)}<td class="num">${r.gross}</td><td class="num hcp">−${r.hcp}</td><td class="num net">${r.net}</td></tr>`; });
+  wh+=`</table>`;
+  document.getElementById('weekBody').innerHTML = wk.length?wh:`<p class="nick">No scores for week ${curWeek} yet.</p>`;
+
+  document.getElementById('rosterBody').innerHTML = players.length
+    ? `<table><tr><th>Player</th><th class="num">Level</th><th class="num">Current Hcp</th></tr>`+rows.map(r=>`<tr>${nameCell(r.pl)}<td class="num">${{N:'Novice',A:'Amateur',V:'Veteran'}[r.pl.level]}</td><td class="num hcp">−${r.currentH}</td></tr>`).join('')+`</table>`
+    : `<p class="nick">No players yet.</p>`;
+  document.getElementById('scorePlayer').innerHTML = players.map(p=>`<option value="${p.id}">${p.name}${p.nickname?' "'+p.nickname+'"':''}</option>`).join('');
+}
+
+/* ===== ADMIN WRITES (RLS-enforced) ===== */
+async function saveScore(){
+  const msg=document.getElementById('scoreMsg');
+  const gross=parseInt(document.getElementById('scoreGross').value);
+  if(!(gross>=18&&gross<=90)){msg.textContent='Enter a gross score between 18 and 90.';msg.className='msg err';return;}
+  const {error} = await db.from('rounds').upsert({
+    player_id: document.getElementById('scorePlayer').value,
+    week: parseInt(document.getElementById('scoreWeek').value),
+    gross: gross
+  }, {onConflict:'player_id,week'});
+  msg.textContent = error ? error.message : 'Saved ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error){document.getElementById('scoreGross').value='';load();}
+}
+async function deleteScore(){
+  const msg=document.getElementById('scoreMsg');
+  const {error} = await db.from('rounds').delete()
+    .eq('player_id', document.getElementById('scorePlayer').value)
+    .eq('week', parseInt(document.getElementById('scoreWeek').value));
+  msg.textContent = error ? error.message : 'Deleted ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error) load();
+}
+async function addPlayer(){
+  const msg=document.getElementById('playerMsg');
+  const name=document.getElementById('pName').value.trim();
+  if(!name){msg.textContent='Name required.';msg.className='msg err';return;}
+  const {error} = await db.from('players').insert({
+    name: name,
+    nickname: document.getElementById('pNick').value.trim()||null,
+    level: document.getElementById('pLevel').value
+  });
+  msg.textContent = error ? error.message : 'Added ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error){document.getElementById('pName').value='';document.getElementById('pNick').value='';load();}
+}
+
+/* ===== REALTIME + INIT ===== */
+db.channel('live').on('postgres_changes',{event:'*',schema:'public'},load).subscribe();
+db.auth.onAuthStateChange(refreshAuth);
+refreshAuth(); load();
+</script>
+</body>
+</html>
