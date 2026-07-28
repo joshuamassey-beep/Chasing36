@@ -75,7 +75,7 @@
   <button data-tab="rules">Scoring 101</button>
 </nav>
 <main>
-  <div id="tab-season" class="tab"><div class="card"><h2>Season Standings</h2><div id="seasonBody">Loading…</div><p class="nick" style="margin-top:8px">★ = Worst Hole Eraser used</p></div>
+  <div id="tab-season" class="tab"><div class="card"><h2>Season Standings</h2><div id="seasonBody">Loading…</div><p class="nick" style="margin-top:8px">★ = Worst Hole Eraser used &nbsp;·&nbsp; ⚑ = tied after tiebreakers, ask the commissioner</p></div>
     <div class="card"><h2>Roster</h2><div id="rosterBody">Loading…</div></div></div>
 
   <div id="tab-week" class="tab" style="display:none">
@@ -311,6 +311,46 @@ function playerRows(){
             season: best5.reduce((s,n)=>s+n.net,0), counted: best5.length};
   });
 }
+/* ===== TIEBREAKERS for season standings =====
+   Order: 1) head-to-head skins between the tied players only, 2) best single net round, 3) unresolved -> flagged for commissioner.
+   Does not touch the handicap engine. */
+function bestNetRound(row){
+  return row.nets.length ? Math.min.apply(null, row.nets.map(n=>n.net)) : Infinity;
+}
+function headToHeadSkinCounts(group){
+  /* Mini skins comp among just the tied players (raw hole scores, no eraser — same convention as league skins) */
+  const counts={}; group.forEach(r=>counts[r.pl.id]=0);
+  for(let w=1; w<=WEEKS; w++){
+    const contenders = group
+      .map(r=>({id:r.pl.id, r: rounds.find(x=>x.player_id===r.pl.id && x.week===w)}))
+      .filter(x=>x.r && x.r.hole_scores && x.r.hole_scores.length===9);
+    if(contenders.length<2) continue;
+    for(let h=0; h<9; h++){
+      let min=99, who=null, tie=false;
+      contenders.forEach(x=>{
+        const s=x.r.hole_scores[h];
+        if(s<min){min=s; who=x.id; tie=false;}
+        else if(s===min){tie=true;}
+      });
+      if(who && !tie) counts[who]++;
+    }
+  }
+  return counts;
+}
+function breakTies(elig){
+  const groups={};
+  elig.forEach(r=>{ (groups[r.season]=groups[r.season]||[]).push(r); });
+  Object.values(groups).forEach(group=>{
+    if(group.length<2) return;
+    const h2h = headToHeadSkinCounts(group);
+    group.forEach(r=>{ r._h2hSkins = h2h[r.pl.id]||0; r._bestNet = bestNetRound(r); });
+    group.forEach(r=>{
+      const dup = group.filter(x=>x._h2hSkins===r._h2hSkins && x._bestNet===r._bestNet);
+      r._tieFlag = dup.length>1;
+    });
+  });
+  return elig.slice().sort((a,b)=> a.season-b.season || (b._h2hSkins-a._h2hSkins) || (a._bestNet-b._bestNet));
+}
 function lvlTag(l){return `<span class="lvl ${l}">${{N:'NOV',A:'AM',V:'VET'}[l]}</span>`;}
 function pName(pl){return pl.name + (pl.nickname?` "${pl.nickname}"`:'');}
 function nameCell(pl, star){return `<td><span class="pname">${pl.name}</span> ${pl.nickname?`<span class="nick">"${pl.nickname}"</span>`:''} ${lvlTag(pl.level)}${star?' <span class="star">★</span>':''}</td>`;}
@@ -338,10 +378,10 @@ function skinsForWeek(week){
 }
 function render(){
   const rows = playerRows();
-  const elig = rows.filter(r=>r.played>=5).sort((a,b)=>a.season-b.season);
+  const elig = breakTies(rows.filter(r=>r.played>=5));
   const rest = rows.filter(r=>r.played<5).sort((a,b)=>(a.season/(a.counted||1))-(b.season/(b.counted||1)));
   let html = `<table><tr><th></th><th>Player</th><th class="num">Rounds</th><th class="num">Hcp</th><th class="num">Best 5 Net</th></tr>`;
-  elig.forEach((r,i)=>{ html+=`<tr class="${i===0?'r1':''}"><td class="rank">${i+1}</td>${nameCell(r.pl,r.eraserUsed)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num net">${r.season}</td></tr>`; });
+  elig.forEach((r,i)=>{ html+=`<tr class="${i===0?'r1':''}"><td class="rank">${i+1}</td>${nameCell(r.pl,r.eraserUsed)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num net">${r.season}${r._tieFlag?' <span class="star" title="Still tied after head-to-head skins and best round — flag for commissioner">⚑</span>':''}</td></tr>`; });
   rest.forEach(r=>{ html+=`<tr class="pending"><td class="rank">–</td>${nameCell(r.pl,r.eraserUsed)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.counted? r.season+' <span class="nick">('+r.counted+' rds)</span>':'—'}</td></tr>`; });
   html+=`</table>`;
   if(!rows.length) html = `<p class="nick">No players yet — the admin can add them in the Admin tab.</p>`;
