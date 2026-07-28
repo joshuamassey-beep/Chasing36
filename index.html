@@ -76,7 +76,7 @@
   <button data-tab="rules">Scoring 101</button>
 </nav>
 <main>
-  <div id="tab-season" class="tab"><div class="card"><h2>Season Standings</h2><div id="seasonBody">Loading…</div><p class="nick" style="margin-top:8px">★ = Worst Hole Eraser used &nbsp;·&nbsp; ⚑ = tied after tiebreakers, ask the commissioner</p></div>
+  <div id="tab-season" class="tab"><div class="card"><h2>Season Standings</h2><div id="seasonBody">Loading…</div><p class="nick" style="margin-top:8px">★ = Worst Hole Eraser used &nbsp;·&nbsp; ⚑ = tied after tiebreakers, ask the commissioner &nbsp;·&nbsp; (inactive) = not yet eligible for the grand prize (needs payment + 4 of 6 weeks played)</p></div>
     <div class="card"><h2>Roster</h2><div id="rosterBody">Loading…</div></div></div>
 
   <div id="tab-week" class="tab" style="display:none">
@@ -135,6 +135,7 @@
     </div>
     <div id="adminPanel" style="display:none">
       <div class="card"><h2>Pending Player Signups</h2><div id="pendingBody">Loading…</div></div>
+      <div class="card"><h2>Manage Players</h2><p class="nick">Active = paid + played 4 of 6 weeks, required to win the grand prize. Disqualifying removes a player from all standings/roster/dropdowns (their scores are kept, not deleted).</p><div id="manageBody">Loading…</div></div>
       <div class="card"><h2>Enter / Edit a Score</h2>
         <label>Player<select id="scorePlayer"></select></label>
         <label>Week<select id="scoreWeek"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
@@ -190,7 +191,7 @@
       <p class="fine">Details: Net = Gross − Handicap. Handicap = 80% of a blend between your level's starting number and the average of your best half of rounds (measured against a scratch of 33), rounded, never below 0, never more than 2 above your starting number, and it can rise at most 1 stroke per week. Season standings count your best 5 of 6 net rounds.</p>
     </div>
     <div class="card"><h2>Prizes</h2>
-      <p><b>Grand Prize:</b> best cumulative net over your best 5 of 6 weeks. <b>Weekly Skins:</b> lowest unique score on each hole wins that skin — Novice, Amateur, and Veteran skins are separate, so you only compete against your own level. <b>Closest to Pin</b> (weeks 3 &amp; 5): everyone competes together on a designated hole, no handicap. <b>Worst Hole Eraser:</b> once per season, one blow-up hole in one round gets replaced with par 4 — ask the commissioner to apply yours.</p>
+      <p><b>Grand Prize:</b> best cumulative net over your best 5 of 6 weeks. <b>Weekly Skins:</b> lowest unique score on each hole wins that skin — Novice, Amateur, and Veteran skins are separate, so you only compete against your own level. <b>Closest to Pin</b> (weeks 3 &amp; 5): everyone competes together on a designated hole, no handicap. <b>Worst Hole Eraser:</b> once per season, one blow-up hole in one round gets replaced with par 4 — ask the commissioner to apply yours. <b>Skins carry over:</b> if a hole ties (no unique low score) it rolls into the next week someone wins it outright, stacking the prize.</p>
     </div>
   </div>
 </main>
@@ -385,7 +386,7 @@ async function load(){
   render();
 }
 function playerRows(){
-  return players.filter(pl=>pl.approved).map(pl=>{
+  return players.filter(pl=>pl.approved && !pl.disqualified).map(pl=>{
     const mine = rounds.filter(r=>r.player_id===pl.id).sort((a,b)=>a.week-b.week);
     const H = handicapSequence(priorFor(pl), mine.map(effGross));
     const nets = mine.map((r,i)=>({week:r.week, gross:effGross(r), rawGross:r.gross, erased:!!r.erased_hole, hcp:H[i], net:effGross(r)-H[i]}));
@@ -434,28 +435,65 @@ function breakTies(elig){
   });
   return elig.slice().sort((a,b)=> a.season-b.season || (b._h2hSkins-a._h2hSkins) || (a._bestNet-b._bestNet));
 }
+/* ===== ELIGIBILITY (RACE_TO_36_IMPLEMENTATION_GUIDE.md: Eligibility & Status) =====
+   Active = paid AND played >= 4 of 6 weeks. Inactive players still show (and still earn
+   skins/CTP if they play), they just can't be the grand-prize leader. Computed, not stored. */
+function isActive(row){ return !!row.pl.paid && row.played>=4; }
 function lvlTag(l){return `<span class="lvl ${l}">${{N:'NOV',A:'AM',V:'VET'}[l]}</span>`;}
 function pName(pl){return pl.name + (pl.nickname?` "${pl.nickname}"`:'');}
-function nameCell(pl, star){return `<td><span class="pname">${pl.name}</span> ${pl.nickname?`<span class="nick">"${pl.nickname}"</span>`:''} ${lvlTag(pl.level)}${star?' <span class="star">★</span>':''}</td>`;}
+function nameCell(pl, star, extra){return `<td><span class="pname">${pl.name}</span> ${pl.nickname?`<span class="nick">"${pl.nickname}"</span>`:''} ${lvlTag(pl.level)}${star?' <span class="star">★</span>':''}${extra||''}</td>`;}
+function contendersForWeekLevel(week, lv){
+  return rounds.filter(r=>r.week===week && r.hole_scores && r.hole_scores.length===9)
+    .map(r=>({r, pl: players.find(p=>p.id===r.player_id)}))
+    .filter(x=>x.pl && x.pl.approved && !x.pl.disqualified && x.pl.level===lv);
+}
+/* ===== SKINS CARRYOVER =====
+   Walks the season so far, per level+hole: if a hole's skin is tied (no unique low score)
+   in a contested week, its value stacks onto the next week that hole is actually won by
+   that level (1x, 2x, 3x...). A week with fewer than 2 hole-by-hole contenders in that level
+   isn't "contested" -- it's skipped, neither resetting nor advancing the carry. This is the
+   official weekly-prize skins ledger; separate from headToHeadSkinCounts(), which is only
+   used for season-standings tiebreakers and is untouched. */
+function skinsLedger(uptoWeek){
+  const ledger = {};
+  ['N','A','V'].forEach(lv=>{
+    ledger[lv] = {};
+    for(let h=1; h<=9; h++){
+      let carry = 0;
+      const history = {};
+      for(let w=1; w<=uptoWeek; w++){
+        const wr = contendersForWeekLevel(w, lv);
+        if(wr.length<2){ history[w] = {contested:false}; continue; }
+        let min=99, who=null, tie=false;
+        wr.forEach(x=>{
+          const s=x.r.hole_scores[h-1];
+          if(s<min){min=s; who=x.pl; tie=false;}
+          else if(s===min){tie=true;}
+        });
+        if(who && !tie){ history[w] = {contested:true, won:true, winner:who, value:carry+1}; carry=0; }
+        else { history[w] = {contested:true, won:false}; carry+=1; }
+      }
+      ledger[lv][h] = {carryNow:carry, history};
+    }
+  });
+  return ledger;
+}
 function skinsForWeek(week){
-  /* lowest unique raw hole score per hole, within each skill level */
+  /* Official skins prize for one week, including any carried-over value. */
+  const ledger = skinsLedger(week);
   const out={};
   ['N','A','V'].forEach(lv=>{
-    const wr = rounds.filter(r=>r.week===week && r.hole_scores && r.hole_scores.length===9)
-      .map(r=>({r, pl: players.find(p=>p.id===r.player_id)}))
-      .filter(x=>x.pl && x.pl.level===lv);
-    if(!wr.length) return;
     const wins={};
-    for(let h=0; h<9; h++){
-      let min=99, who=null, tie=false;
-      wr.forEach(x=>{
-        const s=x.r.hole_scores[h];
-        if(s<min){min=s; who=x.pl; tie=false;}
-        else if(s===min){tie=true;}
-      });
-      if(who && !tie){ (wins[who.id]=wins[who.id]||{pl:who,holes:[]}).holes.push(h+1); }
+    for(let h=1; h<=9; h++){
+      const rec = ledger[lv][h].history[week];
+      if(rec && rec.won){ (wins[rec.winner.id]=wins[rec.winner.id]||{pl:rec.winner, holes:[]}).holes.push({hole:h, value:rec.value}); }
     }
-    if(Object.keys(wins).length) out[lv]=Object.values(wins);
+    const carrying=[];
+    for(let h=1; h<=9; h++){
+      const rec = ledger[lv][h].history[week];
+      if(rec && rec.contested && !rec.won) carrying.push({hole:h, potNow: ledger[lv][h].carryNow+1});
+    }
+    if(Object.keys(wins).length || carrying.length) out[lv]={winners:Object.values(wins), carrying};
   });
   return out;
 }
@@ -463,8 +501,12 @@ function render(){
   const rows = playerRows();
   const elig = breakTies(rows.filter(r=>r.played>=5));
   const rest = rows.filter(r=>r.played<5).sort((a,b)=>(a.season/(a.counted||1))-(b.season/(b.counted||1)));
+  const firstActiveIdx = elig.findIndex(isActive);
   let html = `<table><tr><th></th><th>Player</th><th class="num">Rounds</th><th class="num">Hcp</th><th class="num">Best 5 Net</th></tr>`;
-  elig.forEach((r,i)=>{ html+=`<tr class="${i===0?'r1':''}"><td class="rank">${i+1}</td>${nameCell(r.pl,r.eraserUsed)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num net">${r.season}${r._tieFlag?' <span class="star" title="Still tied after head-to-head skins and best round — flag for commissioner">⚑</span>':''}</td></tr>`; });
+  elig.forEach((r,i)=>{
+    const badge = isActive(r) ? '' : ' <span class="nick" title="Needs payment + 4 of 6 weeks played to be eligible for the grand prize">(inactive)</span>';
+    html+=`<tr class="${i===firstActiveIdx?'r1':''}"><td class="rank">${i+1}</td>${nameCell(r.pl,r.eraserUsed,badge)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num net">${r.season}${r._tieFlag?' <span class="star" title="Still tied after head-to-head skins and best round — flag for commissioner">⚑</span>':''}</td></tr>`;
+  });
   rest.forEach(r=>{ html+=`<tr class="pending"><td class="rank">–</td>${nameCell(r.pl,r.eraserUsed)}<td class="num">${r.played}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.counted? r.season+' <span class="nick">('+r.counted+' rds)</span>':'—'}</td></tr>`; });
   html+=`</table>`;
   if(!rows.length) html = `<p class="nick">No players yet — the admin can add them in the Admin tab.</p>`;
@@ -484,13 +526,19 @@ function render(){
   const lvName={N:'Novice',A:'Amateur',V:'Veteran'};
   let ph='';
   ['N','A','V'].forEach(lv=>{
-    if(skins[lv]) ph += `<b>${lvName[lv]} skins:</b> ` + skins[lv].map(w=>`${pName(w.pl)} (H${w.holes.join(', H')})`).join(' · ') + '<br>';
+    if(!skins[lv]) return;
+    if(skins[lv].winners.length){
+      ph += `<b>${lvName[lv]} skins:</b> ` + skins[lv].winners.map(w=>`${pName(w.pl)} (${w.holes.map(h=>'H'+h.hole+(h.value>1?'×'+h.value:'')).join(', ')})`).join(' · ') + '<br>';
+    }
+    if(skins[lv].carrying.length){
+      ph += `<span class="nick">${lvName[lv]} carrying (tied, no winner): ` + skins[lv].carrying.map(c=>`H${c.hole} → next win pays ×${c.potNow}`).join(', ') + `</span><br>`;
+    }
   });
   if(!ph) ph = '<span class="nick">No skins yet — skins need hole-by-hole scores.</span><br>';
   const ctp = ctps.find(c=>c.week===curWeek);
   if(ctp){
-    const w = players.find(p=>p.id===ctp.player_id);
-    ph += `<b>Closest to Pin</b> (Hole ${ctp.hole}): ${w?pName(w):'TBD'} 🍺`;
+    const w = players.find(p=>p.id===ctp.player_id && p.approved && !p.disqualified);
+    ph += `<b>Closest to Pin</b> (Hole ${ctp.hole}): ${w?pName(w):'Forfeited'} 🍺`;
   } else if(curWeek===3||curWeek===5){
     ph += `<span class="nick">Closest to Pin week — winner TBD.</span>`;
   }
@@ -499,7 +547,7 @@ function render(){
   document.getElementById('rosterBody').innerHTML = rows.length
     ? `<table><tr><th>Player</th><th class="num">Level</th><th class="num">Current Hcp</th><th class="num">Eraser</th></tr>`+rows.map(r=>`<tr>${nameCell(r.pl,false)}<td class="num">${lvName[r.pl.level]}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.eraserUsed?'Used ★':'Available'}</td></tr>`).join('')+`</table>`
     : `<p class="nick">No players yet.</p>`;
-  const approvedPlayers = players.filter(p=>p.approved);
+  const approvedPlayers = players.filter(p=>p.approved && !p.disqualified);
   const opts = approvedPlayers.map(p=>`<option value="${p.id}">${pName(p)}</option>`).join('');
   ['scorePlayer','ctpPlayer','erPlayer'].forEach(id=>{ const el=document.getElementById(id); const cur=el.value; el.innerHTML=opts; if(cur) el.value=cur; });
 
@@ -514,13 +562,36 @@ function render(){
       </div>`).join('')
     : `<p class="nick">No pending signups.</p>`;
 
+  /* ===== Admin: manage approved players (paid / active / DQ) ===== */
+  const approvedRows = players.filter(p=>p.approved);
+  document.getElementById('manageBody').innerHTML = approvedRows.length
+    ? approvedRows.map(p=>{
+        const played = rounds.filter(r=>r.player_id===p.id).length;
+        const active = !!p.paid && played>=4;
+        const statusHtml = p.disqualified
+          ? `<span class="lvl V">DQ'D${p.dq_reason?': '+p.dq_reason:''}</span>`
+          : (active ? `<span class="nick" style="color:var(--green)">Active</span>` : `<span class="nick">Inactive</span>`);
+        return `<div style="padding:8px 0;border-bottom:1px solid #1e3527">
+          <span class="pname">${p.name}</span> ${p.nickname?`<span class="nick">"${p.nickname}"</span>`:''} ${lvlTag(p.level)} ${statusHtml}
+          <label style="display:inline;margin-left:10px;font-size:.85rem;color:var(--text)"><input type="checkbox" style="width:auto" ${p.paid?'checked':''} onchange="togglePaid('${p.id}', this.checked)"> Paid</label>
+          ${p.disqualified
+            ? `<button class="btn sec" style="width:auto;display:inline-block;margin:4px 0 0 10px;padding:6px 10px" onclick="reinstatePlayer('${p.id}')">Reinstate</button>`
+            : `<input type="text" placeholder="DQ reason (optional)" style="width:160px;display:inline-block;margin:4px 0 0 10px;padding:6px" id="dqr-${p.id}">
+               <button class="btn danger" style="width:auto;display:inline-block;margin:4px 0 0 6px;padding:6px 10px" onclick="disqualifyPlayer('${p.id}')">Disqualify</button>`}
+        </div>`;
+      }).join('')
+    : `<p class="nick">No approved players yet.</p>`;
+
   /* ===== Players tab: signup / my stats ===== */
   const myPlayer = sessionUser ? players.find(p=>p.user_id===sessionUser.id) : null;
   document.getElementById('playerSignupCard').style.display = sessionUser ? 'none' : 'block';
   document.getElementById('playerStatusCard').style.display = (sessionUser && myPlayer) ? 'block' : 'none';
   document.getElementById('playerNoLinkCard').style.display = (sessionUser && !myPlayer) ? 'block' : 'none';
   if(sessionUser && myPlayer){
-    if(!myPlayer.approved){
+    if(myPlayer.disqualified){
+      document.getElementById('playerStatusBody').innerHTML =
+        `<p>Your player profile has been <b>disqualified</b> for this season${myPlayer.dq_reason?': '+myPlayer.dq_reason:''}. Contact the commissioner with questions.</p>`;
+    } else if(!myPlayer.approved){
       document.getElementById('playerStatusBody').innerHTML =
         `<p>Thanks, ${myPlayer.name}! Your signup is <b>pending approval</b> from the commissioner — you'll show up on the leaderboard once that's done.</p>
          <p>League fee: <b>${FEE_TEXT}</b> — pay via ${PAYMENT_LINKS_HTML}. ${myPlayer.paid?'<span style="color:var(--green)">Paid ✓</span>':'<span class="nick">Not yet marked paid.</span>'}</p>`;
@@ -545,6 +616,16 @@ async function rejectPlayer(id){
 }
 async function togglePaid(id, val){
   const {error} = await db.from('players').update({paid: val}).eq('id', id);
+  if(!error) load();
+}
+async function disqualifyPlayer(id){
+  const reasonEl = document.getElementById('dqr-'+id);
+  const reason = reasonEl ? reasonEl.value.trim() : '';
+  const {error} = await db.from('players').update({disqualified:true, dq_reason: reason||null}).eq('id', id);
+  if(!error) load();
+}
+async function reinstatePlayer(id){
+  const {error} = await db.from('players').update({disqualified:false, dq_reason:null}).eq('id', id);
   if(!error) load();
 }
 
