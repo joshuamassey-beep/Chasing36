@@ -71,6 +71,7 @@
 <nav>
   <button class="active" data-tab="season">Season</button>
   <button data-tab="week">Weekly</button>
+  <button data-tab="players">Players</button>
   <button data-tab="admin">Admin</button>
   <button data-tab="rules">Scoring 101</button>
 </nav>
@@ -81,6 +82,34 @@
   <div id="tab-week" class="tab" style="display:none">
     <div class="card"><h2>Weekly Results</h2><div class="weeknav" id="weekNav"></div><div id="weekBody">Loading…</div></div>
     <div class="card"><h2>Weekly Prizes</h2><div class="prize" id="prizeBody">Loading…</div></div>
+  </div>
+
+  <div id="tab-players" class="tab" style="display:none">
+    <div class="card" id="playerSignupCard">
+      <h2>New Player Sign Up</h2>
+      <label>Name<input type="text" id="suName"></label>
+      <label>Nickname (optional)<input type="text" id="suNick"></label>
+      <label>Skill level<select id="suLevel"><option value="N">Novice (starts −4)</option><option value="A">Amateur (starts −2)</option><option value="V">Veteran (starts 0)</option></select></label>
+      <label>Email<input type="email" id="suEmail" autocomplete="username"></label>
+      <label>Password (8+ characters)<input type="password" id="suPw" autocomplete="new-password"></label>
+      <button class="btn" onclick="doSignup()">Sign Up</button>
+      <div class="msg" id="signupMsg"></div>
+      <h3>Already signed up?</h3>
+      <label>Email<input type="email" id="plEmail" autocomplete="username"></label>
+      <label>Password<input type="password" id="plPw" autocomplete="current-password"></label>
+      <button class="btn sec" onclick="doPlayerLogin()">Sign In</button>
+      <div class="msg" id="plLoginMsg"></div>
+    </div>
+    <div class="card" id="playerStatusCard" style="display:none">
+      <h2>My Stats</h2>
+      <div id="playerStatusBody">Loading…</div>
+      <button class="btn sec" onclick="doLogout()">Sign Out</button>
+    </div>
+    <div class="card" id="playerNoLinkCard" style="display:none">
+      <h2>Signed in</h2>
+      <p class="nick">This account isn't linked to a player profile.</p>
+      <button class="btn sec" onclick="doLogout()">Sign Out</button>
+    </div>
   </div>
 
   <div id="tab-admin" class="tab" style="display:none">
@@ -105,6 +134,7 @@
       <div class="msg" id="resetMsg"></div>
     </div>
     <div id="adminPanel" style="display:none">
+      <div class="card"><h2>Pending Player Signups</h2><div id="pendingBody">Loading…</div></div>
       <div class="card"><h2>Enter / Edit a Score</h2>
         <label>Player<select id="scorePlayer"></select></label>
         <label>Week<select id="scoreWeek"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
@@ -184,6 +214,11 @@ const SUPABASE_URL = "https://lwebywdnvfwegqnzkkmd.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Puco0-pjcP9bSo5YLdIQuQ_xdjKqS6G";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/* ===== LEAGUE FEE (shown to pending signups) =====
+   TODO(Joshua): replace with the real amount + your Venmo/Cash App links before this goes live. */
+const FEE_TEXT = "$__ for the season";
+const PAYMENT_LINKS_HTML = `<a href="https://venmo.com/u/REPLACE_ME" target="_blank">Venmo</a> or <a href="https://cash.app/$REPLACE_ME" target="_blank">Cash App</a>`;
+
 /* ===== HANDICAP ENGINE (Best-Rounds Shrinkage model) ===== */
 const PRIORS={N:5,A:2,V:0}, SCRATCH=33, ALLOW=0.8, WEEKS=6, PAR=4, SEASON=1;
 function priorFor(pl){ return (pl.custom_prior===null||pl.custom_prior===undefined) ? PRIORS[pl.level] : Number(pl.custom_prior); }
@@ -236,12 +271,27 @@ async function refreshAuth(){
   if(sessionUser && !inRecovery){
     const r = await db.rpc('is_admin');
     isAdmin = !!r.data;
+    /* Self-signup auto-provision: first authenticated load after signUp() creates the
+       actual players row (pending approval) from the metadata captured at signup time.
+       The unique index on players.user_id makes a duplicate attempt harmless. */
+    if(!isAdmin && sessionUser.user_metadata && sessionUser.user_metadata.signup_name && !players.some(p=>p.user_id===sessionUser.id)){
+      const {error} = await db.from('players').insert({
+        name: sessionUser.user_metadata.signup_name,
+        nickname: sessionUser.user_metadata.signup_nickname || null,
+        level: sessionUser.user_metadata.signup_level,
+        user_id: sessionUser.id,
+        approved: false,
+        paid: false
+      });
+      if(!error) await load();
+    }
   }
   document.getElementById('authStatus').textContent = sessionUser ? (sessionUser.email + (isAdmin?' · admin':'')) : '';
   document.getElementById('resetCard').style.display = inRecovery ? 'block':'none';
   document.getElementById('loginCard').style.display = (sessionUser || inRecovery) ? 'none':'block';
   document.getElementById('adminPanel').style.display = (sessionUser && isAdmin && !inRecovery) ? 'block':'none';
   document.getElementById('notAdminCard').style.display = (sessionUser && !isAdmin && !inRecovery) ? 'block':'none';
+  render();
 }
 async function doLogin(){
   const msg=document.getElementById('loginMsg');
@@ -252,6 +302,39 @@ async function doLogin(){
   msg.textContent = error ? error.message : 'Signed in ✓';
   msg.className = 'msg '+(error?'err':'ok');
   if(!error){ document.getElementById('loginPw').value=''; await refreshAuth(); }
+}
+async function doPlayerLogin(){
+  const msg=document.getElementById('plLoginMsg');
+  const {error} = await db.auth.signInWithPassword({
+    email: document.getElementById('plEmail').value.trim(),
+    password: document.getElementById('plPw').value
+  });
+  msg.textContent = error ? error.message : 'Signed in ✓';
+  msg.className = 'msg '+(error?'err':'ok');
+  if(!error){ document.getElementById('plPw').value=''; await refreshAuth(); }
+}
+async function doSignup(){
+  const msg=document.getElementById('signupMsg');
+  const name=document.getElementById('suName').value.trim();
+  const nickname=document.getElementById('suNick').value.trim();
+  const level=document.getElementById('suLevel').value;
+  const email=document.getElementById('suEmail').value.trim();
+  const pw=document.getElementById('suPw').value;
+  if(!name){ msg.textContent='Name required.'; msg.className='msg err'; return; }
+  if(pw.length<8){ msg.textContent='Password needs at least 8 characters.'; msg.className='msg err'; return; }
+  const {data, error} = await db.auth.signUp({
+    email, password: pw,
+    options: { data: { signup_name: name, signup_nickname: nickname||null, signup_level: level } }
+  });
+  if(error){ msg.textContent=error.message; msg.className='msg err'; return; }
+  if(data.session){
+    msg.textContent = 'Signed up ✓ — your profile is pending admin approval.';
+    msg.className='msg ok';
+    await refreshAuth();
+  } else {
+    msg.textContent = 'Check your email to confirm your account, then sign in below.';
+    msg.className='msg ok';
+  }
 }
 async function doLogout(){ await db.auth.signOut(); await refreshAuth(); }
 async function changePw(){
@@ -302,7 +385,7 @@ async function load(){
   render();
 }
 function playerRows(){
-  return players.map(pl=>{
+  return players.filter(pl=>pl.approved).map(pl=>{
     const mine = rounds.filter(r=>r.player_id===pl.id).sort((a,b)=>a.week-b.week);
     const H = handicapSequence(priorFor(pl), mine.map(effGross));
     const nets = mine.map((r,i)=>({week:r.week, gross:effGross(r), rawGross:r.gross, erased:!!r.erased_hole, hcp:H[i], net:effGross(r)-H[i]}));
@@ -413,11 +496,56 @@ function render(){
   }
   document.getElementById('prizeBody').innerHTML = ph;
 
-  document.getElementById('rosterBody').innerHTML = players.length
+  document.getElementById('rosterBody').innerHTML = rows.length
     ? `<table><tr><th>Player</th><th class="num">Level</th><th class="num">Current Hcp</th><th class="num">Eraser</th></tr>`+rows.map(r=>`<tr>${nameCell(r.pl,false)}<td class="num">${lvName[r.pl.level]}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.eraserUsed?'Used ★':'Available'}</td></tr>`).join('')+`</table>`
     : `<p class="nick">No players yet.</p>`;
-  const opts = players.map(p=>`<option value="${p.id}">${pName(p)}</option>`).join('');
+  const approvedPlayers = players.filter(p=>p.approved);
+  const opts = approvedPlayers.map(p=>`<option value="${p.id}">${pName(p)}</option>`).join('');
   ['scorePlayer','ctpPlayer','erPlayer'].forEach(id=>{ const el=document.getElementById(id); const cur=el.value; el.innerHTML=opts; if(cur) el.value=cur; });
+
+  /* ===== Admin: pending signups ===== */
+  const pending = players.filter(p=>!p.approved);
+  document.getElementById('pendingBody').innerHTML = pending.length
+    ? pending.map(p=>`<div style="padding:8px 0;border-bottom:1px solid #1e3527">
+        <span class="pname">${p.name}</span> ${p.nickname?`<span class="nick">"${p.nickname}"</span>`:''} ${lvlTag(p.level)}
+        <label style="display:inline;margin-left:10px;font-size:.85rem;color:var(--text)"><input type="checkbox" style="width:auto" ${p.paid?'checked':''} onchange="togglePaid('${p.id}', this.checked)"> Paid</label>
+        <button class="btn sec" style="width:auto;display:inline-block;margin:4px 0 0 10px;padding:6px 10px" onclick="approvePlayer('${p.id}')">Approve</button>
+        <button class="btn danger" style="width:auto;display:inline-block;margin:4px 0 0 6px;padding:6px 10px" onclick="rejectPlayer('${p.id}')">Reject</button>
+      </div>`).join('')
+    : `<p class="nick">No pending signups.</p>`;
+
+  /* ===== Players tab: signup / my stats ===== */
+  const myPlayer = sessionUser ? players.find(p=>p.user_id===sessionUser.id) : null;
+  document.getElementById('playerSignupCard').style.display = sessionUser ? 'none' : 'block';
+  document.getElementById('playerStatusCard').style.display = (sessionUser && myPlayer) ? 'block' : 'none';
+  document.getElementById('playerNoLinkCard').style.display = (sessionUser && !myPlayer) ? 'block' : 'none';
+  if(sessionUser && myPlayer){
+    if(!myPlayer.approved){
+      document.getElementById('playerStatusBody').innerHTML =
+        `<p>Thanks, ${myPlayer.name}! Your signup is <b>pending approval</b> from the commissioner — you'll show up on the leaderboard once that's done.</p>
+         <p>League fee: <b>${FEE_TEXT}</b> — pay via ${PAYMENT_LINKS_HTML}. ${myPlayer.paid?'<span style="color:var(--green)">Paid ✓</span>':'<span class="nick">Not yet marked paid.</span>'}</p>`;
+    } else {
+      const r = rows.find(x=>x.pl.id===myPlayer.id);
+      const hist = r && r.nets.length
+        ? `<table><tr><th class="num">Wk</th><th class="num">Gross</th><th class="num">Hcp</th><th class="num">Net</th></tr>`+
+          r.nets.map(n=>`<tr><td class="num">${n.week}</td><td class="num">${n.gross}${n.erased?' <span class="nick">(was '+n.rawGross+')</span>':''}</td><td class="num hcp">−${n.hcp}</td><td class="num net">${n.net}</td></tr>`).join('')+`</table>`
+        : `<p class="nick">No rounds entered yet — ask the admin to add your scores.</p>`;
+      document.getElementById('playerStatusBody').innerHTML =
+        `<p>Welcome back, ${myPlayer.name}! Current handicap: <b>−${r?r.currentH:0}</b>${r&&r.played>=5?` · Best-5 season net: <b>${r.season}</b>`:''}</p>${hist}`;
+    }
+  }
+}
+async function approvePlayer(id){
+  const {error} = await db.from('players').update({approved:true}).eq('id', id);
+  if(!error) load();
+}
+async function rejectPlayer(id){
+  const {error} = await db.from('players').delete().eq('id', id);
+  if(!error) load();
+}
+async function togglePaid(id, val){
+  const {error} = await db.from('players').update({paid: val}).eq('id', id);
+  if(!error) load();
 }
 
 /* ===== HOLE ENTRY GRID ===== */
