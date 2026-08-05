@@ -59,6 +59,17 @@
   .prize b{color:var(--gold);}
   .star{color:var(--gold);}
   #jsError{display:none;background:#3f1d1d;color:var(--red);padding:10px 14px;font-size:.85rem;text-align:center;}
+  .pwwrap{position:relative;}
+  .pwwrap input{padding-right:56px;margin-top:4px;}
+  .pwtoggle{position:absolute;right:6px;top:4px;bottom:0;height:calc(100% - 4px);background:none;border:none;color:var(--dim);cursor:pointer;font-size:.72rem;font-weight:700;padding:0 8px;text-transform:uppercase;letter-spacing:.3px;}
+  .pwtoggle:hover{color:var(--text);}
+  .pwrules{list-style:none;margin-top:8px;font-size:.78rem;color:var(--dim);}
+  .pwrules li{padding:2px 0;}
+  .pwrules li.met{color:var(--green);}
+  .pwrules li .ck{display:inline-block;width:16px;}
+  .pwmeter{height:7px;background:var(--card2);border-radius:4px;margin-top:8px;overflow:hidden;border:1px solid var(--line);}
+  .pwmeter-fill{height:100%;width:0;background:var(--red);border-radius:4px;transition:width .2s ease,background .2s ease;}
+  .pwmeter-label{font-size:.75rem;color:var(--dim);margin-top:5px;line-height:1.4;}
 </style>
 </head>
 <body>
@@ -78,12 +89,10 @@
 <main>
   <div id="tab-season" class="tab"><div class="card"><h2>Season Standings</h2><div id="seasonBody">Loading…</div><p class="nick" style="margin-top:8px">★ = Worst Hole Eraser used &nbsp;·&nbsp; ⚑ = tied after tiebreakers, ask the commissioner &nbsp;·&nbsp; (inactive) = not yet eligible for the grand prize (needs payment + 4 of 6 weeks played)</p></div>
     <div class="card"><h2>Roster</h2><div id="rosterBody">Loading…</div></div></div>
-
   <div id="tab-week" class="tab" style="display:none">
     <div class="card"><h2>Weekly Results</h2><div class="weeknav" id="weekNav"></div><div id="weekBody">Loading…</div></div>
     <div class="card"><h2>Weekly Prizes</h2><div class="prize" id="prizeBody">Loading…</div></div>
   </div>
-
   <div id="tab-players" class="tab" style="display:none">
     <div class="card" id="playerSignupCard">
       <h2>New Player Sign Up</h2>
@@ -91,7 +100,7 @@
       <label>Nickname (optional)<input type="text" id="suNick"></label>
       <label>Skill level<select id="suLevel"><option value="N">Novice (starts −4)</option><option value="A">Amateur (starts −2)</option><option value="V">Veteran (starts 0)</option></select></label>
       <label>Email<input type="email" id="suEmail" autocomplete="username"></label>
-      <label>Password (8+ characters)<input type="password" id="suPw" autocomplete="new-password"></label>
+      <label>Password<input type="password" id="suPw" autocomplete="new-password"></label>
       <button class="btn" onclick="doSignup()">Sign Up</button>
       <div class="msg" id="signupMsg"></div>
       <h3>Already signed up?</h3>
@@ -111,7 +120,6 @@
       <button class="btn sec" onclick="doLogout()">Sign Out</button>
     </div>
   </div>
-
   <div id="tab-admin" class="tab" style="display:none">
     <div class="card" id="loginCard">
       <h2>Admin Login</h2>
@@ -184,7 +192,6 @@
       <button class="btn sec" onclick="doLogout()">Sign Out</button>
     </div>
   </div>
-
   <div id="tab-rules" class="tab explain" style="display:none">
     <div class="card"><h2>How the handicap works</h2>
       <p>Your handicap starts from your skill level (Novice −4, Amateur −2, Veteran 0) and then becomes <b>yours</b>: each week we blend that starting number with the average of your <b>best</b> rounds so far, so by mid-season your handicap reflects how you actually play — not the level you signed up as. We subtract 80% of the gap rather than all of it, so better golf still wins on average, but everyone on the leaderboard is within reach every week. And because only your best rounds count, a bad round — accidental or intentional — can never raise your handicap. The only way up the Race to 36 leaderboard is to play well.</p>
@@ -196,7 +203,6 @@
   </div>
 </main>
 <div class="badge" id="selftest"></div>
-
 <script>
 /* Tabs work with zero dependencies — wired before anything else can fail. */
 document.querySelectorAll('nav button').forEach(function(b){ b.onclick = function(){
@@ -214,12 +220,10 @@ window.addEventListener('error', function(e){
 const SUPABASE_URL = "https://lwebywdnvfwegqnzkkmd.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Puco0-pjcP9bSo5YLdIQuQ_xdjKqS6G";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 /* ===== LEAGUE FEE (shown to pending signups) =====
    TODO(Joshua): replace with the real amount + your Venmo/Cash App links before this goes live. */
 const FEE_TEXT = "$__ for the season";
 const PAYMENT_LINKS_HTML = `<a href="https://venmo.com/u/REPLACE_ME" target="_blank">Venmo</a> or <a href="https://cash.app/$REPLACE_ME" target="_blank">Cash App</a>`;
-
 /* ===== HANDICAP ENGINE (Best-Rounds Shrinkage model) ===== */
 const PRIORS={N:5,A:2,V:0}, SCRATCH=33, ALLOW=0.8, WEEKS=6, PAR=4, SEASON=1;
 function priorFor(pl){ return (pl.custom_prior===null||pl.custom_prior===undefined) ? PRIORS[pl.level] : Number(pl.custom_prior); }
@@ -262,7 +266,6 @@ function effGross(round){
   el.textContent = ok ? "engine ✓" : "ENGINE TEST FAILED — do not trust results";
   el.className = "badge"+(ok?"":" fail");
 })();
-
 /* ===== AUTH ===== */
 let isAdmin=false, sessionUser=null, inRecovery=false;
 async function refreshAuth(){
@@ -322,7 +325,7 @@ async function doSignup(){
   const email=document.getElementById('suEmail').value.trim();
   const pw=document.getElementById('suPw').value;
   if(!name){ msg.textContent='Name required.'; msg.className='msg err'; return; }
-  if(pw.length<8){ msg.textContent='Password needs at least 8 characters.'; msg.className='msg err'; return; }
+  if(!pwMeetsMinimum(pw)){ msg.textContent='Password needs 8+ characters with upper, lower, number, and special character.'; msg.className='msg err'; return; }
   const {data, error} = await db.auth.signUp({
     email, password: pw,
     options: { data: { signup_name: name, signup_nickname: nickname||null, signup_level: level } }
@@ -341,7 +344,7 @@ async function doLogout(){ await db.auth.signOut(); await refreshAuth(); }
 async function changePw(){
   const msg=document.getElementById('acctMsg');
   const pw=document.getElementById('newPw').value;
-  if(pw.length<8){ msg.textContent='Use at least 8 characters.'; msg.className='msg err'; return; }
+  if(!pwMeetsMinimum(pw)){ msg.textContent='Password needs 8+ characters with upper, lower, number, and special character.'; msg.className='msg err'; return; }
   const {error} = await db.auth.updateUser({password: pw});
   msg.textContent = error ? error.message : 'Password changed ✓';
   msg.className = 'msg '+(error?'err':'ok');
@@ -363,7 +366,7 @@ async function sendReset(){
 async function submitReset(){
   const msg=document.getElementById('resetMsg');
   const pw=document.getElementById('resetPw').value;
-  if(pw.length<8){ msg.textContent='Use at least 8 characters.'; msg.className='msg err'; return; }
+  if(!pwMeetsMinimum(pw)){ msg.textContent='Password needs 8+ characters with upper, lower, number, and special character.'; msg.className='msg err'; return; }
   const {error} = await db.auth.updateUser({password: pw});
   msg.textContent = error ? error.message : 'Password set ✓';
   msg.className = 'msg '+(error?'err':'ok');
@@ -373,7 +376,84 @@ async function submitReset(){
     setTimeout(refreshAuth, 800);
   }
 }
-
+/* ===== PASSWORD UX: show/hide toggle + live rules checklist + strength meter =====
+   100% = meets all 5 minimum requirements (8+ chars, upper, lower, number, special).
+   Extra length beyond 8 pushes the score past 100% so people see room to go stronger,
+   not just a pass/fail bar. Purely front-end UX -- the actual minimum is still enforced
+   in JS before every signup/reset/change-password call via pwMeetsMinimum(). */
+function pwChecks(pw){
+  return {
+    len: pw.length>=8,
+    upper: /[A-Z]/.test(pw),
+    lower: /[a-z]/.test(pw),
+    num: /[0-9]/.test(pw),
+    special: /[^A-Za-z0-9]/.test(pw)
+  };
+}
+function pwMeetsMinimum(pw){
+  const c=pwChecks(pw);
+  return c.len && c.upper && c.lower && c.num && c.special;
+}
+function pwPercent(pw){
+  const c=pwChecks(pw);
+  const met=Object.values(c).filter(Boolean).length;
+  if(met<5) return Math.round(met/5*100);
+  return Math.min(100 + Math.max(0, pw.length-8)*8, 200);
+}
+const PW_RULE_ITEMS=[['len','At least 8 characters'],['upper','One uppercase letter'],['lower','One lowercase letter'],['num','One number'],['special','One special character']];
+function enhancePasswordField(id, withRules){
+  const input=document.getElementById(id);
+  if(!input) return;
+  const wrap=document.createElement('div');
+  wrap.className='pwwrap';
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const btn=document.createElement('button');
+  btn.type='button'; btn.className='pwtoggle'; btn.textContent='Show';
+  btn.onclick=function(){
+    const showing = input.type==='text';
+    input.type = showing ? 'password':'text';
+    btn.textContent = showing ? 'Show':'Hide';
+  };
+  wrap.appendChild(btn);
+  if(!withRules) return;
+  const rulesEl=document.createElement('ul');
+  rulesEl.className='pwrules';
+  rulesEl.innerHTML = PW_RULE_ITEMS.map(([k,label])=>`<li id="${id}-r-${k}"><span class="ck">○</span> ${label}</li>`).join('');
+  wrap.parentNode.insertBefore(rulesEl, wrap.nextSibling);
+  const meter=document.createElement('div');
+  meter.className='pwmeter';
+  meter.innerHTML=`<div class="pwmeter-fill" id="${id}-meter-fill"></div>`;
+  rulesEl.parentNode.insertBefore(meter, rulesEl.nextSibling);
+  const meterLabel=document.createElement('div');
+  meterLabel.className='pwmeter-label';
+  meterLabel.id=id+'-meter-label';
+  meter.parentNode.insertBefore(meterLabel, meter.nextSibling);
+  function update(){
+    const pw=input.value;
+    const c=pwChecks(pw);
+    PW_RULE_ITEMS.forEach(([k])=>{
+      const li=document.getElementById(id+'-r-'+k);
+      const ok=c[k];
+      li.classList.toggle('met', ok);
+      li.querySelector('.ck').textContent = ok ? '✓':'○';
+    });
+    const pct = pw.length ? pwPercent(pw) : 0;
+    const fill=document.getElementById(id+'-meter-fill');
+    fill.style.width=Math.min(pct,100)+'%';
+    fill.style.background = pct>=100 ? 'var(--green)' : (pct>=60?'var(--gold)':'var(--red)');
+    const lbl=document.getElementById(id+'-meter-label');
+    if(!pw.length){ lbl.textContent=''; }
+    else if(pct<100){ lbl.textContent = pct+'% — meet all 5 requirements above to reach our 100% minimum.'; }
+    else { lbl.textContent = pct+'% — 100% is our minimum, not a ceiling: nice work, that\'s a strong password! Save it in your password manager of choice.'; }
+  }
+  input.addEventListener('input', update);
+  update();
+}
+(function(){
+  ['loginPw','plPw'].forEach(id=>enhancePasswordField(id,false));
+  ['suPw','resetPw','newPw'].forEach(id=>enhancePasswordField(id,true));
+})();
 /* ===== DATA + RENDER ===== */
 let players=[], rounds=[], ctps=[], curWeek=1;
 async function load(){
@@ -511,7 +591,6 @@ function render(){
   html+=`</table>`;
   if(!rows.length) html = `<p class="nick">No players yet — the admin can add them in the Admin tab.</p>`;
   document.getElementById('seasonBody').innerHTML = html;
-
   const nav = document.getElementById('weekNav');
   if(!nav.dataset.built){ nav.dataset.built=1; for(let w=1;w<=WEEKS;w++){const b=document.createElement('button');b.textContent='Wk '+w;b.onclick=()=>{curWeek=w;render();};nav.appendChild(b);} }
   [...nav.children].forEach((b,i)=>b.classList.toggle('active',i+1===curWeek));
@@ -520,7 +599,6 @@ function render(){
   wk.forEach((r,i)=>{ wh+=`<tr class="${i===0?'r1':''}"><td class="rank ${i===0?'winner':''}">${i===0?'🏆':i+1}</td>${nameCell(r.pl,r.erased)}<td class="num">${r.gross}${r.erased?' <span class="nick">(was '+r.rawGross+')</span>':''}</td><td class="num hcp">−${r.hcp}</td><td class="num net">${r.net}</td></tr>`; });
   wh+=`</table>`;
   document.getElementById('weekBody').innerHTML = wk.length?wh:`<p class="nick">No scores for week ${curWeek} yet.</p>`;
-
   /* Prizes: skins + CTP */
   const skins = skinsForWeek(curWeek);
   const lvName={N:'Novice',A:'Amateur',V:'Veteran'};
@@ -543,14 +621,12 @@ function render(){
     ph += `<span class="nick">Closest to Pin week — winner TBD.</span>`;
   }
   document.getElementById('prizeBody').innerHTML = ph;
-
   document.getElementById('rosterBody').innerHTML = rows.length
     ? `<table><tr><th>Player</th><th class="num">Level</th><th class="num">Current Hcp</th><th class="num">Eraser</th></tr>`+rows.map(r=>`<tr>${nameCell(r.pl,false)}<td class="num">${lvName[r.pl.level]}</td><td class="num hcp">−${r.currentH}</td><td class="num">${r.eraserUsed?'Used ★':'Available'}</td></tr>`).join('')+`</table>`
     : `<p class="nick">No players yet.</p>`;
   const approvedPlayers = players.filter(p=>p.approved && !p.disqualified);
   const opts = approvedPlayers.map(p=>`<option value="${p.id}">${pName(p)}</option>`).join('');
   ['scorePlayer','ctpPlayer','erPlayer'].forEach(id=>{ const el=document.getElementById(id); const cur=el.value; el.innerHTML=opts; if(cur) el.value=cur; });
-
   /* ===== Admin: pending signups ===== */
   const pending = players.filter(p=>!p.approved);
   document.getElementById('pendingBody').innerHTML = pending.length
@@ -561,7 +637,6 @@ function render(){
         <button class="btn danger" style="width:auto;display:inline-block;margin:4px 0 0 6px;padding:6px 10px" onclick="rejectPlayer('${p.id}')">Reject</button>
       </div>`).join('')
     : `<p class="nick">No pending signups.</p>`;
-
   /* ===== Admin: manage approved players (paid / active / DQ) ===== */
   const approvedRows = players.filter(p=>p.approved);
   document.getElementById('manageBody').innerHTML = approvedRows.length
@@ -581,7 +656,6 @@ function render(){
         </div>`;
       }).join('')
     : `<p class="nick">No approved players yet.</p>`;
-
   /* ===== Players tab: signup / my stats ===== */
   const myPlayer = sessionUser ? players.find(p=>p.user_id===sessionUser.id) : null;
   document.getElementById('playerSignupCard').style.display = sessionUser ? 'none' : 'block';
@@ -628,7 +702,6 @@ async function reinstatePlayer(id){
   const {error} = await db.from('players').update({disqualified:false, dq_reason:null}).eq('id', id);
   if(!error) load();
 }
-
 /* ===== HOLE ENTRY GRID ===== */
 (function(){
   const grid=document.getElementById('holesGrid');
@@ -658,7 +731,6 @@ async function prefill(){
 }
 document.getElementById('scorePlayer').addEventListener('change', prefill);
 document.getElementById('scoreWeek').addEventListener('change', prefill);
-
 /* ===== ADMIN WRITES (RLS-enforced) ===== */
 async function saveScore(){
   const msg=document.getElementById('scoreMsg');
@@ -746,7 +818,6 @@ async function addPlayer(){
   msg.className = 'msg '+(error?'err':'ok');
   if(!error){document.getElementById('pName').value='';document.getElementById('pNick').value='';load();}
 }
-
 /* ===== REALTIME + INIT ===== */
 db.channel('live').on('postgres_changes',{event:'*',schema:'public'},load).subscribe();
 db.auth.onAuthStateChange(function(event){
