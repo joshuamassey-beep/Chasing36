@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Race to 36 — Live Leaderboard</title>
+<title>Chasing 36 — Live Leaderboard</title>
 <style>
   :root{--bg:#0d1b12;--card:#14251a;--card2:#1a3022;--line:#2a4a35;--text:#e8f0ea;--dim:#8fa898;--green:#4ade80;--gold:#fbbf24;--red:#f87171;--blue:#60a5fa;}
   *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
@@ -76,7 +76,7 @@
 <div id="jsError"></div>
 <header>
   <div id="authStatus"></div>
-  <h1>🏌️ RACE TO <span>36</span></h1>
+  <h1>🏌️ CHASING <span>36</span></h1>
   <p>Single leaderboard · Best-rounds handicapping · Best 5 of 6 counts</p>
 </header>
 <nav>
@@ -194,7 +194,7 @@
   </div>
   <div id="tab-rules" class="tab explain" style="display:none">
     <div class="card"><h2>How the handicap works</h2>
-      <p>Your handicap starts from your skill level (Novice −4, Amateur −2, Veteran 0) and then becomes <b>yours</b>: each week we blend that starting number with the average of your <b>best</b> rounds so far, so by mid-season your handicap reflects how you actually play — not the level you signed up as. We subtract 80% of the gap rather than all of it, so better golf still wins on average, but everyone on the leaderboard is within reach every week. And because only your best rounds count, a bad round — accidental or intentional — can never raise your handicap. The only way up the Race to 36 leaderboard is to play well.</p>
+      <p>Your handicap starts from your skill level (Novice −4, Amateur −2, Veteran 0) and then becomes <b>yours</b>: each week we blend that starting number with the average of your <b>best</b> rounds so far, so by mid-season your handicap reflects how you actually play — not the level you signed up as. We subtract 80% of the gap rather than all of it, so better golf still wins on average, but everyone on the leaderboard is within reach every week. And because only your best rounds count, a bad round — accidental or intentional — can never raise your handicap. The only way up the Chasing 36 leaderboard is to play well.</p>
       <p class="fine">Details: Net = Gross − Handicap. Handicap = 80% of a blend between your level's starting number and the average of your best half of rounds (measured against a scratch of 33), rounded, never below 0, never more than 2 above your starting number, and it can rise at most 1 stroke per week. Season standings count your best 5 of 6 net rounds.</p>
     </div>
     <div class="card"><h2>Prizes</h2>
@@ -359,7 +359,7 @@ async function sendReset(){
   const msg=document.getElementById('forgotMsg');
   const email=document.getElementById('forgotEmail').value.trim();
   if(!email){ msg.textContent='Enter your email.'; msg.className='msg err'; return; }
-  const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo:'https://race-to-36.vercel.app'});
+  const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo:'https://chasing36.com'});
   msg.textContent = error ? error.message : 'If that email has an account, a reset link is on its way — check spam too.';
   msg.className = 'msg '+(error?'err':'ok');
 }
