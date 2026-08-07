@@ -4,23 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chasing 36 — Live Leaderboard</title>
+<link rel="icon" type="image/png" href="/chasing36-favicon.png">
 <style>
-  :root{--bg:#0d1b12;--card:#14251a;--card2:#1a3022;--line:#2a4a35;--text:#e8f0ea;--dim:#8fa898;--green:#4ade80;--gold:#fbbf24;--red:#f87171;--blue:#60a5fa;}
+  :root{--bg:#0d1b12;--card:#14251a;--card2:#1a3022;--line:#2a4a35;--text:#e8f0ea;--dim:#8fa898;--green:#4ade80;--gold:#fbbf24;--red:#f87171;--blue:#60a5fa;--headtop:#0a1610;}
+  [data-theme="light"]{--bg:#f4f7f4;--card:#ffffff;--card2:#eef3ee;--line:#d7e2d9;--text:#16241a;--dim:#5b6b60;--green:#16a34a;--gold:#b45309;--red:#dc2626;--blue:#2563eb;--headtop:#eaf2ea;}
+  [data-theme="light"] .lvl.N{background:#dbeafe;color:#1d4ed8;}
+  [data-theme="light"] .lvl.A{background:#fef3c7;color:#92400e;}
+  [data-theme="light"] .lvl.V{background:#fee2e2;color:#b91c1c;}
+  [data-theme="light"] #jsError{background:#fee2e2;color:#b91c1c;}
   *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
-  body{background:var(--bg);color:var(--text);min-height:100vh;}
-  header{padding:20px 16px 12px;text-align:center;background:linear-gradient(180deg,#0a1610,var(--bg));position:relative;}
+  body{background:var(--bg);color:var(--text);min-height:100vh;transition:background .25s ease,color .25s ease;}
+  header{padding:20px 16px 12px;text-align:center;background:linear-gradient(180deg,var(--headtop),var(--bg));position:relative;}
+  .brand{display:flex;justify-content:center;}
+  .brandLogo{max-width:240px;width:75%;height:auto;display:block;}
   header h1{font-size:1.5rem;letter-spacing:.5px;}
   header h1 span{color:var(--green);}
-  header p{color:var(--dim);font-size:.8rem;margin-top:4px;}
-  #authStatus{position:absolute;top:10px;right:12px;font-size:.72rem;color:var(--dim);}
+  header p{color:var(--dim);font-size:.8rem;margin-top:8px;}
+  .authWidget{position:absolute;top:12px;right:12px;z-index:40;text-align:left;}
+  .authTrigger{background:var(--card2);border:1px solid var(--line);color:var(--text);padding:7px 16px;border-radius:20px;font-size:.75rem;cursor:pointer;font-weight:700;letter-spacing:.2px;}
+  .authTrigger:hover{border-color:var(--green);}
+  .authTrigger.signedin{display:flex;align-items:center;gap:0;padding:3px;border-radius:50%;}
+  .avatarCircle{width:30px;height:30px;border-radius:50%;background:var(--green);color:#0a1610;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0;}
+  .authPopover{position:absolute;top:calc(100% + 10px);right:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;width:270px;max-width:calc(100vw - 24px);box-shadow:0 10px 30px rgba(0,0,0,.45);}
+  .authPopover h3{font-size:.85rem;margin:0 0 4px;color:var(--green);}
+  .authPopover label{margin-top:10px;display:block;}
+  .acctHead{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .themeRow{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);}
+  .themeSeg{display:flex;gap:4px;background:var(--card2);padding:3px;border-radius:8px;margin-top:6px;}
+  .themeSeg button{flex:1;background:none;border:none;color:var(--dim);padding:7px 0;border-radius:6px;font-size:.72rem;cursor:pointer;font-weight:600;}
+  .themeSeg button.active{background:var(--green);color:#0a1610;}
   nav{display:flex;gap:6px;padding:10px 12px;overflow-x:auto;justify-content:center;flex-wrap:wrap;}
-  nav button{background:var(--card);color:var(--dim);border:1px solid var(--line);padding:8px 14px;border-radius:20px;font-size:.85rem;cursor:pointer;white-space:nowrap;}
+  nav button{background:var(--card);color:var(--dim);border:1px solid var(--line);padding:8px 14px;border-radius:20px;font-size:.85rem;cursor:pointer;white-space:nowrap;transition:border-color .15s ease,color .15s ease;}
+  nav button:hover{border-color:var(--green);color:var(--text);}
   nav button.active{background:var(--green);color:#0a1610;font-weight:700;border-color:var(--green);}
   main{max-width:760px;margin:0 auto;padding:8px 12px 60px;}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.12),0 6px 18px -10px rgba(0,0,0,.35);}
+  footer{max-width:760px;margin:0 auto;padding:24px 16px 40px;text-align:center;color:var(--dim);font-size:.75rem;}
   table{width:100%;border-collapse:collapse;font-size:.9rem;}
   th{color:var(--dim);text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--line);}
-  td{padding:9px 8px;border-bottom:1px solid #1e3527;}
+  td{padding:9px 8px;border-bottom:1px solid var(--line);}
   tr:last-child td{border-bottom:none;}
   .rank{color:var(--dim);width:28px;}
   .r1 .rank{color:var(--gold);font-weight:800;}
@@ -36,7 +58,9 @@
   .pending{opacity:.55;}
   input,select{background:var(--card2);border:1px solid var(--line);color:var(--text);padding:10px;border-radius:8px;font-size:1rem;width:100%;margin-top:4px;}
   label{font-size:.78rem;color:var(--dim);display:block;margin-top:12px;}
-  .btn{background:var(--green);color:#0a1610;border:none;padding:12px;border-radius:8px;font-weight:700;font-size:1rem;width:100%;margin-top:16px;cursor:pointer;}
+  .btn{background:var(--green);color:#0a1610;border:none;padding:12px;border-radius:8px;font-weight:700;font-size:1rem;width:100%;margin-top:16px;cursor:pointer;transition:filter .15s ease,transform .1s ease;}
+  .btn:hover{filter:brightness(1.08);}
+  .btn:active{transform:scale(.98);}
   .btn.sec{background:var(--card2);color:var(--text);border:1px solid var(--line);font-weight:400;}
   .btn.danger{background:transparent;color:var(--red);border:1px solid var(--red);font-weight:400;}
   .msg{margin-top:10px;font-size:.85rem;min-height:1.2em;}
@@ -70,13 +94,77 @@
   .pwmeter{height:7px;background:var(--card2);border-radius:4px;margin-top:8px;overflow:hidden;border:1px solid var(--line);}
   .pwmeter-fill{height:100%;width:0;background:var(--red);border-radius:4px;transition:width .2s ease,background .2s ease;}
   .pwmeter-label{font-size:.75rem;color:var(--dim);margin-top:5px;line-height:1.4;}
+  #recoveryScreen{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px;z-index:100;}
+  .recoveryCard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px 26px;max-width:380px;width:100%;text-align:center;}
+  .recoveryLogo{max-width:200px;width:100%;height:auto;margin:0 auto 20px;display:block;}
+  .recoveryCard h2{color:var(--green);margin-bottom:8px;font-size:1.15rem;}
+  .recoveryCard label{text-align:left;}
 </style>
+<script>
+/* Resolve + apply theme before first paint to avoid a light/dark flash. */
+(function(){
+  var t = localStorage.getItem('chasing36-theme') || 'auto';
+  var resolved = t==='auto' ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light':'dark') : t;
+  document.documentElement.setAttribute('data-theme', resolved);
+})();
+</script>
 </head>
 <body>
 <div id="jsError"></div>
+<div id="recoveryScreen">
+  <div class="recoveryCard">
+    <img src="/chasing36-wordmark.png" alt="Chasing 36" class="recoveryLogo" onerror="this.style.display='none'">
+    <h2>Set a New Password</h2>
+    <p class="nick">You followed a password reset link. Choose a new password to finish and get back in.</p>
+    <label>New password<input type="password" id="resetPw" autocomplete="new-password"></label>
+    <button class="btn" onclick="submitReset()">Set Password</button>
+    <div class="msg" id="resetMsg"></div>
+  </div>
+</div>
+<div id="appShell">
 <header>
-  <div id="authStatus"></div>
-  <h1>🏌️ CHASING <span>36</span></h1>
+  <div class="authWidget" id="authWidget">
+    <button class="authTrigger" id="authTrigger" onclick="toggleAuthPopover(event)">Sign In</button>
+    <div class="authPopover" id="authPopover" style="display:none" onclick="event.stopPropagation()">
+      <div id="authSignedOut">
+        <h3>Sign In</h3>
+        <label>Email<input type="email" id="loginEmail" autocomplete="username"></label>
+        <label>Password<input type="password" id="loginPw" autocomplete="current-password"></label>
+        <button class="btn" onclick="doLogin()">Sign In</button>
+        <div class="msg" id="loginMsg"></div>
+        <p class="nick" style="margin-top:10px"><a href="#" onclick="toggleForgot();return false;" style="color:var(--blue)">Forgot password?</a></p>
+        <div id="forgotBox" style="display:none">
+          <label>Email for reset link<input type="email" id="forgotEmail" autocomplete="username"></label>
+          <button class="btn sec" onclick="sendReset()">Send Reset Link</button>
+          <div class="msg" id="forgotMsg"></div>
+        </div>
+        <p class="nick" style="margin-top:12px">New player? Sign up from the Players tab.</p>
+      </div>
+      <div id="authSignedIn" style="display:none">
+        <div class="acctHead">
+          <span class="avatarCircle" id="acctAvatar"></span>
+          <div>
+            <div class="pname" id="acctEmail" style="font-size:.85rem"></div>
+            <div class="nick" id="acctRole" style="font-size:.72rem"></div>
+          </div>
+        </div>
+        <h3 style="margin-top:14px">Change Password</h3>
+        <label>New password<input type="password" id="newPw" autocomplete="new-password"></label>
+        <button class="btn sec" onclick="changePw()">Update Password</button>
+        <div class="msg" id="acctMsg"></div>
+        <button class="btn danger" style="margin-top:14px" onclick="doLogout()">Sign Out</button>
+      </div>
+      <div class="themeRow">
+        <span class="nick">Appearance</span>
+        <div class="themeSeg" id="themeSeg">
+          <button type="button" data-theme-choice="light" onclick="setTheme('light')">Light</button>
+          <button type="button" data-theme-choice="dark" onclick="setTheme('dark')">Dark</button>
+          <button type="button" data-theme-choice="auto" onclick="setTheme('auto')">Auto</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="brand"><img src="/chasing36-wordmark.png" alt="Chasing 36" class="brandLogo" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{innerHTML:'🏌️ CHASING <span style=color:var(--green)>36</span>'}))"></div>
   <p>Single leaderboard · Best-rounds handicapping · Best 5 of 6 counts</p>
 </header>
 <nav>
@@ -103,43 +191,21 @@
       <label>Password<input type="password" id="suPw" autocomplete="new-password"></label>
       <button class="btn" onclick="doSignup()">Sign Up</button>
       <div class="msg" id="signupMsg"></div>
-      <h3>Already signed up?</h3>
-      <label>Email<input type="email" id="plEmail" autocomplete="username"></label>
-      <label>Password<input type="password" id="plPw" autocomplete="current-password"></label>
-      <button class="btn sec" onclick="doPlayerLogin()">Sign In</button>
-      <div class="msg" id="plLoginMsg"></div>
+      <p class="nick" style="margin-top:10px">Already signed up? Use the Sign In button in the top right.</p>
     </div>
     <div class="card" id="playerStatusCard" style="display:none">
       <h2>My Stats</h2>
       <div id="playerStatusBody">Loading…</div>
-      <button class="btn sec" onclick="doLogout()">Sign Out</button>
     </div>
     <div class="card" id="playerNoLinkCard" style="display:none">
       <h2>Signed in</h2>
       <p class="nick">This account isn't linked to a player profile.</p>
-      <button class="btn sec" onclick="doLogout()">Sign Out</button>
     </div>
   </div>
   <div id="tab-admin" class="tab" style="display:none">
-    <div class="card" id="loginCard">
-      <h2>Admin Login</h2>
-      <label>Email<input type="email" id="loginEmail" autocomplete="username"></label>
-      <label>Password<input type="password" id="loginPw" autocomplete="current-password"></label>
-      <button class="btn" onclick="doLogin()">Sign In</button>
-      <div class="msg" id="loginMsg"></div>
-      <p class="nick" style="margin-top:10px"><a href="#" onclick="toggleForgot();return false;" style="color:var(--blue)">Forgot password?</a></p>
-      <div id="forgotBox" style="display:none">
-        <label>Email for reset link<input type="email" id="forgotEmail" autocomplete="username"></label>
-        <button class="btn sec" onclick="sendReset()">Send Reset Link</button>
-        <div class="msg" id="forgotMsg"></div>
-      </div>
-    </div>
-    <div class="card" id="resetCard" style="display:none">
-      <h2>Set New Password</h2>
-      <p class="nick">You followed a password reset link. Choose a new password to finish.</p>
-      <label>New password<input type="password" id="resetPw" autocomplete="new-password"></label>
-      <button class="btn" onclick="submitReset()">Set Password</button>
-      <div class="msg" id="resetMsg"></div>
+    <div class="card" id="adminSignedOutCard">
+      <h2>Admin Tools</h2>
+      <p class="nick">Sign in using the button in the top right corner to access admin tools.</p>
     </div>
     <div id="adminPanel" style="display:none">
       <div class="card"><h2>Pending Player Signups</h2><div id="pendingBody">Loading…</div></div>
@@ -179,17 +245,10 @@
         <button class="btn" onclick="addPlayer()">Add Player</button>
         <div class="msg" id="playerMsg"></div>
       </div>
-      <div class="card"><h2>Account</h2>
-        <label>New password<input type="password" id="newPw" autocomplete="new-password"></label>
-        <button class="btn sec" onclick="changePw()">Change Password</button>
-        <button class="btn sec" onclick="doLogout()">Sign Out</button>
-        <div class="msg" id="acctMsg"></div>
-      </div>
     </div>
     <div class="card" id="notAdminCard" style="display:none">
       <h2>Signed in</h2>
       <p class="nick">This account doesn't have admin access. Ask the league admin to grant it.</p>
-      <button class="btn sec" onclick="doLogout()">Sign Out</button>
     </div>
   </div>
   <div id="tab-rules" class="tab explain" style="display:none">
@@ -202,6 +261,8 @@
     </div>
   </div>
 </main>
+<footer>&copy; <span id="footerYear"></span> Chasing 36</footer>
+</div>
 <div class="badge" id="selftest"></div>
 <script>
 /* Tabs work with zero dependencies — wired before anything else can fail. */
@@ -214,6 +275,7 @@ window.addEventListener('error', function(e){
   var el=document.getElementById('jsError'); el.style.display='block';
   el.textContent='Something broke: '+e.message+' — screenshot this and send it to Joshua.';
 });
+document.getElementById('footerYear').textContent = new Date().getFullYear();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
@@ -290,13 +352,52 @@ async function refreshAuth(){
       if(!error) await load();
     }
   }
-  document.getElementById('authStatus').textContent = sessionUser ? (sessionUser.email + (isAdmin?' · admin':'')) : '';
-  document.getElementById('resetCard').style.display = inRecovery ? 'block':'none';
-  document.getElementById('loginCard').style.display = (sessionUser || inRecovery) ? 'none':'block';
+  const trigger = document.getElementById('authTrigger');
+  const signedOutBox = document.getElementById('authSignedOut');
+  const signedInBox = document.getElementById('authSignedIn');
+  if(sessionUser){
+    trigger.classList.add('signedin');
+    trigger.innerHTML = '<span class="avatarCircle">'+sessionUser.email.charAt(0).toUpperCase()+'</span>';
+    signedOutBox.style.display='none';
+    signedInBox.style.display='block';
+    document.getElementById('acctAvatar').textContent = sessionUser.email.charAt(0).toUpperCase();
+    document.getElementById('acctEmail').textContent = sessionUser.email;
+    document.getElementById('acctRole').textContent = isAdmin ? 'Admin' : (players.some(p=>p.user_id===sessionUser.id) ? 'Player' : 'Signed in');
+  } else {
+    trigger.classList.remove('signedin');
+    trigger.textContent = 'Sign In';
+    signedOutBox.style.display='block';
+    signedInBox.style.display='none';
+  }
+  document.getElementById('appShell').style.display = inRecovery ? 'none' : 'block';
+  document.getElementById('recoveryScreen').style.display = inRecovery ? 'flex' : 'none';
+  document.getElementById('adminSignedOutCard').style.display = (!sessionUser && !inRecovery) ? 'block':'none';
   document.getElementById('adminPanel').style.display = (sessionUser && isAdmin && !inRecovery) ? 'block':'none';
   document.getElementById('notAdminCard').style.display = (sessionUser && !isAdmin && !inRecovery) ? 'block':'none';
   render();
 }
+function toggleAuthPopover(e){
+  if(e) e.stopPropagation();
+  const pop = document.getElementById('authPopover');
+  pop.style.display = pop.style.display==='block' ? 'none' : 'block';
+}
+document.addEventListener('click', function(e){
+  const widget = document.getElementById('authWidget');
+  const pop = document.getElementById('authPopover');
+  if(pop.style.display==='block' && !widget.contains(e.target)) pop.style.display='none';
+});
+function resolveTheme(pref){ return pref==='auto' ? (window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark') : pref; }
+function applyTheme(pref){
+  document.documentElement.setAttribute('data-theme', resolveTheme(pref));
+  document.querySelectorAll('.themeSeg button').forEach(function(b){ b.classList.toggle('active', b.dataset.themeChoice===pref); });
+}
+function setTheme(pref){ localStorage.setItem('chasing36-theme', pref); applyTheme(pref); }
+(function(){
+  applyTheme(localStorage.getItem('chasing36-theme') || 'auto');
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(){
+    if((localStorage.getItem('chasing36-theme')||'auto')==='auto') applyTheme('auto');
+  });
+})();
 async function doLogin(){
   const msg=document.getElementById('loginMsg');
   const {error} = await db.auth.signInWithPassword({
@@ -305,17 +406,7 @@ async function doLogin(){
   });
   msg.textContent = error ? error.message : 'Signed in ✓';
   msg.className = 'msg '+(error?'err':'ok');
-  if(!error){ document.getElementById('loginPw').value=''; await refreshAuth(); }
-}
-async function doPlayerLogin(){
-  const msg=document.getElementById('plLoginMsg');
-  const {error} = await db.auth.signInWithPassword({
-    email: document.getElementById('plEmail').value.trim(),
-    password: document.getElementById('plPw').value
-  });
-  msg.textContent = error ? error.message : 'Signed in ✓';
-  msg.className = 'msg '+(error?'err':'ok');
-  if(!error){ document.getElementById('plPw').value=''; await refreshAuth(); }
+  if(!error){ document.getElementById('loginPw').value=''; await refreshAuth(); document.getElementById('authPopover').style.display='none'; }
 }
 async function doSignup(){
   const msg=document.getElementById('signupMsg');
@@ -451,7 +542,7 @@ function enhancePasswordField(id, withRules){
   update();
 }
 (function(){
-  ['loginPw','plPw'].forEach(id=>enhancePasswordField(id,false));
+  ['loginPw'].forEach(id=>enhancePasswordField(id,false));
   ['suPw','resetPw','newPw'].forEach(id=>enhancePasswordField(id,true));
 })();
 /* ===== DATA + RENDER ===== */
@@ -630,7 +721,7 @@ function render(){
   /* ===== Admin: pending signups ===== */
   const pending = players.filter(p=>!p.approved);
   document.getElementById('pendingBody').innerHTML = pending.length
-    ? pending.map(p=>`<div style="padding:8px 0;border-bottom:1px solid #1e3527">
+    ? pending.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)">
         <span class="pname">${p.name}</span> ${p.nickname?`<span class="nick">"${p.nickname}"</span>`:''} ${lvlTag(p.level)}
         <label style="display:inline;margin-left:10px;font-size:.85rem;color:var(--text)"><input type="checkbox" style="width:auto" ${p.paid?'checked':''} onchange="togglePaid('${p.id}', this.checked)"> Paid</label>
         <button class="btn sec" style="width:auto;display:inline-block;margin:4px 0 0 10px;padding:6px 10px" onclick="approvePlayer('${p.id}')">Approve</button>
@@ -646,7 +737,7 @@ function render(){
         const statusHtml = p.disqualified
           ? `<span class="lvl V">DQ'D${p.dq_reason?': '+p.dq_reason:''}</span>`
           : (active ? `<span class="nick" style="color:var(--green)">Active</span>` : `<span class="nick">Inactive</span>`);
-        return `<div style="padding:8px 0;border-bottom:1px solid #1e3527">
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
           <span class="pname">${p.name}</span> ${p.nickname?`<span class="nick">"${p.nickname}"</span>`:''} ${lvlTag(p.level)} ${statusHtml}
           <label style="display:inline;margin-left:10px;font-size:.85rem;color:var(--text)"><input type="checkbox" style="width:auto" ${p.paid?'checked':''} onchange="togglePaid('${p.id}', this.checked)"> Paid</label>
           ${p.disqualified
@@ -824,7 +915,7 @@ db.auth.onAuthStateChange(function(event){
   if(event === 'PASSWORD_RECOVERY') inRecovery = true;
   refreshAuth();
 });
-refreshAuth(); load();
+refreshAuth(); load().then(refreshAuth);
 </script>
 </body>
 </html>
