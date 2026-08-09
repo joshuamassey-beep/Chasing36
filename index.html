@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chasing 36 — Live Leaderboard</title>
-<link rel="icon" type="image/png" href="/chasing36-favicon.png">
+<link rel="icon" type="image/png" href="/C36_Browser_Icon.png">
+<link rel="apple-touch-icon" href="/C36_Browser_Icon.png">
 <style>
   :root{--bg:#0d1b12;--card:#14251a;--card2:#1a3022;--line:#2a4a35;--text:#e8f0ea;--dim:#8fa898;--green:#4ade80;--gold:#fbbf24;--red:#f87171;--blue:#60a5fa;--headtop:#0a1610;}
   [data-theme="light"]{--bg:#f4f7f4;--card:#ffffff;--card2:#eef3ee;--line:#d7e2d9;--text:#16241a;--dim:#5b6b60;--green:#16a34a;--gold:#b45309;--red:#dc2626;--blue:#2563eb;--headtop:#eaf2ea;}
@@ -16,7 +17,8 @@
   body{background:var(--bg);color:var(--text);min-height:100vh;transition:background .25s ease,color .25s ease;}
   header{padding:20px 16px 12px;text-align:center;background:linear-gradient(180deg,var(--headtop),var(--bg));position:relative;}
   .brand{display:flex;justify-content:center;}
-  .brandLogo{max-width:240px;width:75%;height:auto;display:block;}
+  .brandBadge{display:inline-block;background:#fff;border-radius:14px;padding:10px 20px;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+  .brandLogo{max-width:220px;width:75%;height:auto;display:block;}
   header h1{font-size:1.5rem;letter-spacing:.5px;}
   header h1 span{color:var(--green);}
   header p{color:var(--dim);font-size:.8rem;margin-top:8px;}
@@ -96,7 +98,8 @@
   .pwmeter-label{font-size:.75rem;color:var(--dim);margin-top:5px;line-height:1.4;}
   #recoveryScreen{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px;z-index:100;}
   .recoveryCard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px 26px;max-width:380px;width:100%;text-align:center;}
-  .recoveryLogo{max-width:200px;width:100%;height:auto;margin:0 auto 20px;display:block;}
+  .recoveryLogoBadge{display:inline-block;background:#fff;border-radius:14px;padding:10px 20px;margin-bottom:20px;}
+  .recoveryLogo{max-width:180px;width:100%;height:auto;display:block;}
   .recoveryCard h2{color:var(--green);margin-bottom:8px;font-size:1.15rem;}
   .recoveryCard label{text-align:left;}
 </style>
@@ -113,7 +116,7 @@
 <div id="jsError"></div>
 <div id="recoveryScreen">
   <div class="recoveryCard">
-    <img src="/chasing36-wordmark.png" alt="Chasing 36" class="recoveryLogo" onerror="this.style.display='none'">
+    <span class="recoveryLogoBadge"><img src="/Chasing36_Sport_Simple_Wordmark.png" alt="Chasing 36" class="recoveryLogo" onerror="this.parentElement.style.display='none'"></span>
     <h2>Set a New Password</h2>
     <p class="nick">You followed a password reset link. Choose a new password to finish and get back in.</p>
     <label>New password<input type="password" id="resetPw" autocomplete="new-password"></label>
@@ -164,7 +167,7 @@
       </div>
     </div>
   </div>
-  <div class="brand"><img src="/chasing36-wordmark.png" alt="Chasing 36" class="brandLogo" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{innerHTML:'🏌️ CHASING <span style=color:var(--green)>36</span>'}))"></div>
+  <div class="brand"><span class="brandBadge"><img src="/Chasing36_Sport_Simple_Wordmark.png" alt="Chasing 36" class="brandLogo" onerror="this.parentElement.replaceWith(Object.assign(document.createElement('h1'),{innerHTML:'🏌️ CHASING <span style=color:var(--green)>36</span>'}))"></span></div>
   <p>A Golf App for the rest of us.</p>
 </header>
 <nav>
