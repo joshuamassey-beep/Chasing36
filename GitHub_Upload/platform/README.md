@@ -1,5 +1,5 @@
 # Chasing 36 — Platform
-
+ 
 The Next.js + Supabase tournament platform described in `../CHASING36_PLATFORM_PLAN.md`. Lives inside the `race-to-36` repo, in this `platform/` subfolder, alongside the current static site at repo root — see the plan's "Repo & folder structure" section for why.
 
 ## Status
