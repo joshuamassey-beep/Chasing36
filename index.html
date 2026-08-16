@@ -280,9 +280,13 @@ document.getElementById('footerYear').textContent = new Date().getFullYear();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-const SUPABASE_URL = "https://lwebywdnvfwegqnzkkmd.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Puco0-pjcP9bSo5YLdIQuQ_xdjKqS6G";
+const SUPABASE_URL = "https://ymjvxtshkadzzxikyzzu.supabase.co";
+const SUPABASE_KEY = "sb_publishable_wk8eKvoUrxvupaGZQO5eog_ISLYTAtD";
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+/* This site now runs on the same Supabase project as the Chasing 36 platform
+   (chasing36-app.vercel.app), consolidated from a separate legacy project.
+   Everything below is scoped to this one league via TOURNAMENT_ID. */
+const TOURNAMENT_ID = "7ae35e20-6893-4163-bdcb-4f79d24ca595";
 /* ===== LEAGUE FEE (shown to pending signups) =====
    TODO(Joshua): replace with the real amount + your Venmo/Cash App links before this goes live. */
 const FEE_TEXT = "$__ for the season";
@@ -343,6 +347,7 @@ async function refreshAuth(){
        The unique index on players.user_id makes a duplicate attempt harmless. */
     if(!isAdmin && sessionUser.user_metadata && sessionUser.user_metadata.signup_name && !players.some(p=>p.user_id===sessionUser.id)){
       const {error} = await db.from('players').insert({
+        tournament_id: TOURNAMENT_ID,
         name: sessionUser.user_metadata.signup_name,
         nickname: sessionUser.user_metadata.signup_nickname || null,
         level: sessionUser.user_metadata.signup_level,
@@ -550,9 +555,9 @@ function enhancePasswordField(id, withRules){
 let players=[], rounds=[], ctps=[], curWeek=1;
 async function load(){
   const [p,r,c] = await Promise.all([
-    db.from('players').select('*').order('name'),
-    db.from('rounds').select('*').eq('season', SEASON).order('week'),
-    db.from('ctp').select('*').eq('season', SEASON)
+    db.from('players').select('*').eq('tournament_id', TOURNAMENT_ID).order('name'),
+    db.from('rounds').select('*').eq('tournament_id', TOURNAMENT_ID).order('week'),
+    db.from('ctp').select('*').eq('tournament_id', TOURNAMENT_ID)
   ]);
   players = p.data||[]; rounds = r.data||[]; ctps = c.data||[];
   render();
@@ -839,11 +844,11 @@ async function saveScore(){
     if(!(gross>=18&&gross<=90)){msg.textContent='Enter 9 hole scores, or a gross between 18 and 90.';msg.className='msg err';return;}
   }
   const {error} = await db.from('rounds').upsert({
+    tournament_id: TOURNAMENT_ID,
     player_id: document.getElementById('scorePlayer').value,
     week: parseInt(document.getElementById('scoreWeek').value),
-    season: SEASON,
     gross, hole_scores
-  }, {onConflict:'player_id,season,week'});
+  }, {onConflict:'player_id,week'});
   msg.textContent = error ? error.message : 'Saved ✓';
   msg.className = 'msg '+(error?'err':'ok');
   if(!error) load();
@@ -852,7 +857,7 @@ async function deleteScore(){
   const msg=document.getElementById('scoreMsg');
   const {error} = await db.from('rounds').delete()
     .eq('player_id', document.getElementById('scorePlayer').value)
-    .eq('season', SEASON)
+    .eq('tournament_id', TOURNAMENT_ID)
     .eq('week', parseInt(document.getElementById('scoreWeek').value));
   msg.textContent = error ? error.message : 'Deleted ✓';
   msg.className = 'msg '+(error?'err':'ok');
@@ -861,7 +866,7 @@ async function deleteScore(){
 async function saveCtp(){
   const msg=document.getElementById('ctpMsg');
   const {error} = await db.from('ctp').upsert({
-    season: SEASON,
+    tournament_id: TOURNAMENT_ID,
     week: parseInt(document.getElementById('ctpWeek').value),
     hole: parseInt(document.getElementById('ctpHole').value),
     player_id: document.getElementById('ctpPlayer').value
@@ -872,7 +877,7 @@ async function saveCtp(){
 }
 async function clearCtp(){
   const msg=document.getElementById('ctpMsg');
-  const {error} = await db.from('ctp').delete().eq('season', SEASON).eq('week', parseInt(document.getElementById('ctpWeek').value));
+  const {error} = await db.from('ctp').delete().eq('tournament_id', TOURNAMENT_ID).eq('week', parseInt(document.getElementById('ctpWeek').value));
   msg.textContent = error ? error.message : 'Cleared ✓';
   msg.className = 'msg '+(error?'err':'ok');
   if(!error) load();
@@ -892,7 +897,7 @@ async function clearEraser(){
   const msg=document.getElementById('erMsg');
   const {error} = await db.from('rounds').update({erased_hole:null})
     .eq('player_id', document.getElementById('erPlayer').value)
-    .eq('season', SEASON).not('erased_hole','is',null);
+    .eq('tournament_id', TOURNAMENT_ID).not('erased_hole','is',null);
   msg.textContent = error ? error.message : 'Eraser removed ✓';
   msg.className = 'msg '+(error?'err':'ok');
   if(!error) load();
@@ -902,9 +907,12 @@ async function addPlayer(){
   const name=document.getElementById('pName').value.trim();
   if(!name){msg.textContent='Name required.';msg.className='msg err';return;}
   const {error} = await db.from('players').insert({
+    tournament_id: TOURNAMENT_ID,
     name: name,
     nickname: document.getElementById('pNick').value.trim()||null,
-    level: document.getElementById('pLevel').value
+    level: document.getElementById('pLevel').value,
+    approved: true,
+    paid: false
   });
   msg.textContent = error ? error.message : 'Added ✓';
   msg.className = 'msg '+(error?'err':'ok');
